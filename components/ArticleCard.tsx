@@ -70,7 +70,7 @@ export function ArticleCard({
         {article.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-3">
             {article.tags.map((tag) => (
-              <span key={tag} className="text-xs bg-blue-50 text-blue-600 rounded-full px-2 py-0.5 font-medium">
+              <span key={tag} className="text-xs bg-blue-50 text-blue-600 rounded-full px-2 py-0.5 font-medium capitalize">
                 {tag}
               </span>
             ))}

@@ -85,7 +85,7 @@ export default function FeedClient({ userEmail, userId }: { userEmail: string; u
               <button
                 key={tag}
                 onClick={() => setActiveTag(tag === activeTag ? null : tag)}
-                className={`text-sm rounded-full px-3 py-1 font-medium transition-colors ${
+                className={`text-sm rounded-full px-3 py-1 font-medium transition-colors capitalize ${
                   activeTag === tag ? "bg-blue-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
                 }`}
               >
