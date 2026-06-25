@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ArticleCard } from "@/components/ArticleCard";
 import { SubmitArticle } from "@/components/SubmitArticle";
+import { QuillIcon } from "@/components/QuillIcon";
 
 type Article = {
   id: string;
@@ -58,7 +59,11 @@ export default function FeedClient({ userEmail, userId }: { userEmail: string; u
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-bold text-slate-900">Inkwell</h1>
+          <div className="flex items-center gap-2">
+            <QuillIcon className="w-7 h-7" />
+            <h1 className="text-lg font-bold text-slate-900">Inkwell</h1>
+            <span className="text-sm text-slate-400 italic hidden sm:block">A place to share ideas</span>
+          </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500 hidden sm:block">{userEmail}</span>
             <button onClick={handleSignOut} className="text-sm text-gray-500 hover:text-gray-700">
