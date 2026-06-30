@@ -41,7 +41,7 @@ export function AuthorFeed() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">From the Authors</h2>
+      <h2 className="text-base font-medium text-gray-400 tracking-widest uppercase" style={{ fontFamily: "var(--font-display)", letterSpacing: "0.18em" }}>From the Authors</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {authors.map((author) => (
           <div key={author.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -50,7 +50,8 @@ export function AuthorFeed() {
                 href={author.website_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm font-semibold text-gray-900 hover:text-blue-600"
+                className="font-semibold text-gray-900 hover:text-blue-600 text-lg"
+                style={{ fontFamily: "var(--font-display)" }}
               >
                 {author.name} ↗
               </a>
@@ -65,7 +66,8 @@ export function AuthorFeed() {
                       href={article.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block text-sm font-medium text-gray-900 hover:text-blue-600 leading-snug mb-1"
+                      className="block text-base font-medium text-gray-900 hover:text-blue-600 leading-snug mb-1"
+                      style={{ fontFamily: "var(--font-display)" }}
                     >
                       {article.title}
                     </a>

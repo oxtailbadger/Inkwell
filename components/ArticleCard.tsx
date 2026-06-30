@@ -88,7 +88,8 @@ export function ArticleCard({
           href={article.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="block font-semibold text-gray-900 hover:text-blue-600 leading-snug mb-2"
+          className="block font-semibold text-gray-900 hover:text-blue-600 leading-snug mb-2 text-lg"
+          style={{ fontFamily: "var(--font-display)" }}
         >
           {article.title ?? article.url}
         </a>

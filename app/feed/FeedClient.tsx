@@ -82,8 +82,8 @@ export default function FeedClient({ userEmail, userId }: { userEmail: string; u
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <QuillIcon className="w-7 h-7" />
-            <h1 className="text-lg font-bold text-slate-900">Inkwell</h1>
-            <span className="text-sm text-slate-400 italic hidden sm:block">A place to share ideas</span>
+            <h1 className="text-2xl font-semibold text-slate-900 tracking-tight" style={{ fontFamily: "var(--font-display)" }}>Inkwell</h1>
+            <span className="text-sm text-slate-400 italic hidden sm:block" style={{ fontFamily: "var(--font-display)" }}>A place to share ideas</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500 hidden sm:block">{userEmail}</span>
@@ -148,7 +148,7 @@ export default function FeedClient({ userEmail, userId }: { userEmail: string; u
               </div>
             )}
 
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Articles from your friends</h2>
+            <h2 className="text-base font-medium text-gray-400 tracking-widest uppercase" style={{ fontFamily: "var(--font-display)", letterSpacing: "0.18em" }}>Articles from your friends</h2>
 
             {feedError && (
               <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
