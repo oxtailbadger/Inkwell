@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ArticleCard } from "@/components/ArticleCard";
 import { SubmitArticle } from "@/components/SubmitArticle";
 import { QuillIcon } from "@/components/QuillIcon";
+import { AuthorFeed } from "@/components/AuthorFeed";
 
 type Article = {
   id: string;
@@ -130,6 +131,8 @@ export default function FeedClient({ userEmail, userId }: { userEmail: string; u
             ))}
           </div>
         )}
+
+        <AuthorFeed />
       </main>
     </div>
   );

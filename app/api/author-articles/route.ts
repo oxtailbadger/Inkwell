@@ -1,0 +1,70 @@
+import { NextResponse } from "next/server";
+import Parser from "rss-parser";
+import { createClient } from "@/lib/supabase/server";
+
+type RSSItem = {
+  title?: string;
+  link?: string;
+  contentSnippet?: string;
+  pubDate?: string;
+  categories?: string[];
+};
+
+const parser = new Parser();
+
+const PAID_CATEGORIES = ["daily update", "this week in stratechery"];
+const PAID_DESCRIPTION_MARKERS = [
+  "thank you for being a paid subscriber",
+  "this post is for paid subscribers",
+  "subscribe to read",
+  "for paying subscribers",
+];
+
+function isPaywalled(item: RSSItem): boolean {
+  const desc = (item.contentSnippet ?? "").toLowerCase();
+  const cats = (item.categories ?? []).map((c) => c.toLowerCase());
+
+  if (PAID_CATEGORIES.some((p) => cats.includes(p))) return true;
+  if (PAID_DESCRIPTION_MARKERS.some((m) => desc.includes(m))) return true;
+  if (desc.length > 0 && desc.length < 80) return true;
+
+  return false;
+}
+
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { data: authors, error } = await supabase
+    .from("authors")
+    .select("*")
+    .order("name");
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const results = await Promise.all(
+    (authors ?? []).map(async (author) => {
+      try {
+        const feed = await parser.parseURL(author.rss_url);
+        const articles = feed.items
+          .filter((item) => !isPaywalled(item))
+          .slice(0, 3)
+          .map((item) => ({
+            url: item.link ?? "",
+            title: item.title ?? null,
+            description: item.contentSnippet?.slice(0, 200) ?? null,
+            published_at: item.pubDate ?? null,
+          }));
+
+        return { id: author.id, name: author.name, website_url: author.website_url, articles };
+      } catch {
+        return { id: author.id, name: author.name, website_url: author.website_url, articles: [] };
+      }
+    })
+  );
+
+  return NextResponse.json(results, {
+    headers: { "Cache-Control": "s-maxage=3600, stale-while-revalidate=86400" },
+  });
+}
