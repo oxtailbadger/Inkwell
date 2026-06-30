@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import ogs from "open-graph-scraper";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
@@ -11,12 +10,18 @@ export async function POST(request: NextRequest) {
   if (!url) return NextResponse.json({ error: "URL required" }, { status: 400 });
 
   try {
-    const { result } = await ogs({ url, fetchOptions: { headers: { "user-agent": "Twitterbot/1.0" } } });
+    const res = await fetch(
+      `https://api.microlink.io?url=${encodeURIComponent(url)}&screenshot=false`,
+      { headers: { "Content-Type": "application/json" } }
+    );
+    if (!res.ok) throw new Error(`Microlink returned ${res.status}`);
+
+    const { data } = await res.json();
     return NextResponse.json({
-      title: result.ogTitle ?? result.twitterTitle ?? null,
-      description: result.ogDescription ?? result.twitterDescription ?? null,
-      image_url: result.ogImage?.[0]?.url ?? result.twitterImage?.[0]?.url ?? null,
-      site_name: result.ogSiteName ?? null,
+      title: data.title ?? null,
+      description: data.description ?? null,
+      image_url: data.image?.url ?? data.logo?.url ?? null,
+      site_name: data.publisher ?? null,
     });
   } catch {
     return NextResponse.json({ error: "Could not fetch metadata" }, { status: 422 });
