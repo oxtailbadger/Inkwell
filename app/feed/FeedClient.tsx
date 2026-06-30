@@ -51,19 +51,16 @@ export default function FeedClient({ userEmail, userId }: { userEmail: string; u
 
   useEffect(() => { loadArticles(); }, [loadArticles]);
 
-  // Track which section is in view
+  // Track which section is in view based on scroll position
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) setActiveSection(entry.target.id);
-        }
-      },
-      { rootMargin: "-30% 0px -60% 0px" }
-    );
-    const sections = document.querySelectorAll("#articles, #authors");
-    sections.forEach((s) => observer.observe(s));
-    return () => observer.disconnect();
+    function onScroll() {
+      const authors = document.getElementById("authors");
+      if (!authors) return;
+      const midpoint = window.innerHeight / 2;
+      setActiveSection(authors.getBoundingClientRect().top <= midpoint ? "authors" : "articles");
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   async function handleDelete(id: string) {
@@ -125,7 +122,6 @@ export default function FeedClient({ userEmail, userId }: { userEmail: string; u
         {/* Main content */}
         <main className="flex-1 min-w-0 space-y-10">
           <section id="articles" className="space-y-6 scroll-mt-20">
-            <h2 className="text-xl font-bold text-slate-900">Articles from your friends</h2>
             <SubmitArticle onSubmitted={loadArticles} />
 
             {allTags.length > 0 && (
@@ -151,6 +147,8 @@ export default function FeedClient({ userEmail, userId }: { userEmail: string; u
                 ))}
               </div>
             )}
+
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Articles from your friends</h2>
 
             {feedError && (
               <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
