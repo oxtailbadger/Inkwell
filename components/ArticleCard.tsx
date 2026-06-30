@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 
 type Article = {
   id: string;
@@ -13,6 +14,8 @@ type Article = {
   archive_url: string | null;
   submitted_by: string;
   created_at: string;
+  nod_count: number;
+  user_has_nodded: boolean;
 };
 
 export function ArticleCard({
@@ -24,13 +27,38 @@ export function ArticleCard({
   onDelete: (id: string) => void;
   currentUserId: string;
 }) {
+  const [nodCount, setNodCount] = useState(article.nod_count);
+  const [hasNodded, setHasNodded] = useState(article.user_has_nodded);
+  const [nodding, setNodding] = useState(false);
+
   const isOwner = article.submitted_by === currentUserId;
   const domain = (() => {
     try { return new URL(article.url).hostname.replace("www.", ""); } catch { return ""; }
   })();
 
+  async function toggleNod() {
+    if (nodding) return;
+    setNodding(true);
+    // Optimistic update
+    setHasNodded((prev) => !prev);
+    setNodCount((prev) => hasNodded ? prev - 1 : prev + 1);
+
+    const res = await fetch("/api/nods", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ article_id: article.id }),
+    });
+
+    if (!res.ok) {
+      // Revert on failure
+      setHasNodded((prev) => !prev);
+      setNodCount((prev) => hasNodded ? prev + 1 : prev - 1);
+    }
+    setNodding(false);
+  }
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
       {article.image_url && (
         <a href={article.url} target="_blank" rel="noopener noreferrer">
           <div className="relative w-full h-44 bg-gray-100">
@@ -44,7 +72,7 @@ export function ArticleCard({
           </div>
         </a>
       )}
-      <div className="p-4">
+      <div className="p-4 flex flex-col flex-1">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">{article.site_name ?? domain}</span>
           {isOwner && (
@@ -76,20 +104,36 @@ export function ArticleCard({
             ))}
           </div>
         )}
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-gray-400">
-            {isOwner ? "Shared by you" : "Shared by a friend"} · {new Date(article.created_at).toLocaleDateString()}
-          </p>
-          {article.archive_url && (
-            <a
-              href={article.archive_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-amber-600 hover:text-amber-800 font-medium"
+
+        {/* Footer */}
+        <div className="mt-auto pt-3 border-t border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleNod}
+              disabled={nodding}
+              className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                hasNodded
+                  ? "bg-amber-50 border-amber-300 text-amber-700"
+                  : "bg-white border-gray-200 text-gray-500 hover:border-amber-300 hover:text-amber-600"
+              }`}
             >
-              Archive ↗
-            </a>
-          )}
+              <span>{hasNodded ? "✦" : "✧"}</span>
+              <span>{nodCount > 0 ? `${nodCount} ${nodCount === 1 ? "Nod" : "Nods"}` : "Nod"}</span>
+            </button>
+            {article.archive_url && (
+              <a
+                href={article.archive_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-amber-600 hover:text-amber-800 font-medium"
+              >
+                Archive ↗
+              </a>
+            )}
+          </div>
+          <p className="text-xs text-gray-400">
+            {isOwner ? "You" : "Friend"} · {new Date(article.created_at).toLocaleDateString()}
+          </p>
         </div>
       </div>
     </div>

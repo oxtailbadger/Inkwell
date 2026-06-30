@@ -18,6 +18,8 @@ type Article = {
   archive_url: string | null;
   submitted_by: string;
   created_at: string;
+  nod_count: number;
+  user_has_nodded: boolean;
 };
 
 const NAV_ITEMS = [
@@ -123,6 +125,7 @@ export default function FeedClient({ userEmail, userId }: { userEmail: string; u
         {/* Main content */}
         <main className="flex-1 min-w-0 space-y-10">
           <section id="articles" className="space-y-6 scroll-mt-20">
+            <h2 className="text-xl font-bold text-slate-900">Articles from your friends</h2>
             <SubmitArticle onSubmitted={loadArticles} />
 
             {allTags.length > 0 && (

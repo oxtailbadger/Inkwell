@@ -37,7 +37,9 @@ function makeSupabaseMock({
 
   const order = vi.fn().mockResolvedValue({ data: selectData, error: selectError });
   const contains = vi.fn(() => ({ order }));
-  const select = vi.fn(() => ({ order, contains }));
+  // .in() is used for the nods sub-query — return empty nods list
+  const inFn = vi.fn().mockResolvedValue({ data: [], error: null });
+  const select = vi.fn(() => ({ order, contains, in: inFn }));
 
   const deleteEq2 = vi.fn().mockResolvedValue({ error: deleteError });
   const deleteEq1 = vi.fn(() => ({ eq: deleteEq2 }));

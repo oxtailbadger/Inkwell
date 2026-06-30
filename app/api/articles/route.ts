@@ -15,9 +15,23 @@ export async function GET(request: NextRequest) {
 
   if (tag) query = query.contains("tags", [tag]);
 
-  const { data, error } = await query;
+  const { data: articles, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+
+  // Fetch all nods for these articles in one query
+  const articleIds = (articles ?? []).map((a) => a.id);
+  const { data: nods } = articleIds.length
+    ? await supabase.from("nods").select("article_id, user_id").in("article_id", articleIds)
+    : { data: [] };
+
+  const nodsData = nods ?? [];
+  const articlesWithNods = (articles ?? []).map((article) => ({
+    ...article,
+    nod_count: nodsData.filter((n) => n.article_id === article.id).length,
+    user_has_nodded: nodsData.some((n) => n.article_id === article.id && n.user_id === user.id),
+  }));
+
+  return NextResponse.json(articlesWithNods);
 }
 
 export async function POST(request: NextRequest) {
