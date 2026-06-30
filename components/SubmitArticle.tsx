@@ -26,6 +26,9 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
   const [archiveUrl, setArchiveUrl] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [preview, setPreview] = useState<OGData | null>(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualDescription, setManualDescription] = useState("");
   const [fetching, setFetching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +44,9 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
     setArchiveUrl("");
     setSelectedTags([]);
     setPreview(null);
+    setManualMode(false);
+    setManualTitle("");
+    setManualDescription("");
     setError(null);
     setOpen(false);
   }
@@ -49,16 +55,26 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
     if (!url) return;
     setFetching(true);
     setError(null);
+    setManualMode(false);
+    setPreview(null);
     try {
       const res = await fetch("/api/fetch-og", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
-      if (!res.ok) throw new Error("Could not fetch article metadata");
-      setPreview(await res.json());
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Unknown error");
+      const body = await res.json();
+      if (!res.ok) {
+        if (body.manual) {
+          setManualMode(true);
+        } else {
+          setError("Could not fetch article metadata");
+        }
+        return;
+      }
+      setPreview(body);
+    } catch {
+      setError("Could not fetch article metadata");
     } finally {
       setFetching(false);
     }
@@ -68,14 +84,31 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
     setSubmitting(true);
     setError(null);
     try {
-      let ogData = preview;
-      if (!ogData) {
+      let ogData: OGData | null = preview;
+
+      if (!ogData && !manualMode) {
         const ogRes = await fetch("/api/fetch-og", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url }),
         });
-        if (ogRes.ok) ogData = await ogRes.json();
+        const body = await ogRes.json();
+        if (ogRes.ok) {
+          ogData = body;
+        } else if (body.manual) {
+          setManualMode(true);
+          setSubmitting(false);
+          return;
+        }
+      }
+
+      if (manualMode) {
+        ogData = {
+          title: manualTitle.trim() || null,
+          description: manualDescription.trim() || null,
+          image_url: null,
+          site_name: null,
+        };
       }
 
       const res = await fetch("/api/articles", {
@@ -116,7 +149,7 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
             <input
               type="url"
               value={url}
-              onChange={(e) => { setUrl(e.target.value); setPreview(null); }}
+              onChange={(e) => { setUrl(e.target.value); setPreview(null); setManualMode(false); }}
               placeholder="Paste article URL…"
               className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -138,6 +171,28 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
               {preview.site_name && (
                 <p className="text-xs text-gray-400 mt-1">{preview.site_name}</p>
               )}
+            </div>
+          )}
+
+          {manualMode && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-3">
+              <p className="text-xs text-amber-700 font-medium">
+                This site blocks automatic previews. Add a title and description so your friends know what it&apos;s about.
+              </p>
+              <input
+                type="text"
+                value={manualTitle}
+                onChange={(e) => setManualTitle(e.target.value)}
+                placeholder="Article title…"
+                className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+              <textarea
+                value={manualDescription}
+                onChange={(e) => setManualDescription(e.target.value)}
+                placeholder="Short description (optional)…"
+                rows={2}
+                className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+              />
             </div>
           )}
 
@@ -196,7 +251,7 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={!url || submitting}
+              disabled={!url || submitting || (manualMode && !manualTitle.trim())}
               className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
             >
               {submitting ? "Sharing…" : "Share"}
