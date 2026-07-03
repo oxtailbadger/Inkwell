@@ -18,20 +18,28 @@ export async function GET(request: NextRequest) {
   const { data: articles, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Fetch all nods for these articles in one query
+  // Fetch nods and submitter profiles for these articles, one query each
   const articleIds = (articles ?? []).map((a) => a.id);
-  const { data: nods } = articleIds.length
-    ? await supabase.from("nods").select("article_id, user_id").in("article_id", articleIds)
-    : { data: [] };
+  const submitterIds = [...new Set((articles ?? []).map((a) => a.submitted_by))];
+  const [{ data: nods }, { data: profiles }] = await Promise.all([
+    articleIds.length
+      ? supabase.from("nods").select("article_id, user_id").in("article_id", articleIds)
+      : Promise.resolve({ data: [] }),
+    submitterIds.length
+      ? supabase.from("profiles").select("id, display_name").in("id", submitterIds)
+      : Promise.resolve({ data: [] }),
+  ]);
 
   const nodsData = nods ?? [];
-  const articlesWithNods = (articles ?? []).map((article) => ({
+  const nameById = new Map((profiles ?? []).map((p) => [p.id, p.display_name]));
+  const enriched = (articles ?? []).map((article) => ({
     ...article,
     nod_count: nodsData.filter((n) => n.article_id === article.id).length,
     user_has_nodded: nodsData.some((n) => n.article_id === article.id && n.user_id === user.id),
+    submitter_name: nameById.get(article.submitted_by) ?? null,
   }));
 
-  return NextResponse.json(articlesWithNods);
+  return NextResponse.json(enriched);
 }
 
 export async function POST(request: NextRequest) {

@@ -16,6 +16,7 @@ type Article = {
   created_at: string;
   nod_count: number;
   user_has_nodded: boolean;
+  submitter_name: string | null;
 };
 
 export function ArticleCard({
@@ -133,7 +134,7 @@ export function ArticleCard({
             )}
           </div>
           <p className="text-xs text-gray-400">
-            {isOwner ? "You" : "Friend"} · {new Date(article.created_at).toLocaleDateString()}
+            {isOwner ? "You" : article.submitter_name ?? "Friend"} · {new Date(article.created_at).toLocaleDateString()}
           </p>
         </div>
       </div>

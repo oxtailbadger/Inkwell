@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ArticleCard } from "@/components/ArticleCard";
 import { SubmitArticle } from "@/components/SubmitArticle";
@@ -20,6 +21,7 @@ type Article = {
   created_at: string;
   nod_count: number;
   user_has_nodded: boolean;
+  submitter_name: string | null;
 };
 
 const NAV_ITEMS = [
@@ -28,8 +30,11 @@ const NAV_ITEMS = [
 ];
 
 export default function FeedClient({ userEmail, userId }: { userEmail: string; userId: string }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Tag filter lives in the URL so filtered views are shareable and survive reloads
+  const activeTag = searchParams.get("tag");
   const [articles, setArticles] = useState<Article[]>([]);
-  const [activeTag, setActiveTag] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState("articles");
   const [loading, setLoading] = useState(true);
   const [feedError, setFeedError] = useState<string | null>(null);
@@ -50,6 +55,10 @@ export default function FeedClient({ userEmail, userId }: { userEmail: string; u
   }, [activeTag]);
 
   useEffect(() => { loadArticles(); }, [loadArticles]);
+
+  function setActiveTag(tag: string | null) {
+    router.replace(tag ? `/feed?tag=${encodeURIComponent(tag)}` : "/feed", { scroll: false });
+  }
 
   // Track which section is in view based on scroll position
   useEffect(() => {
