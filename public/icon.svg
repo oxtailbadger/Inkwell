@@ -1,0 +1,19 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="#fffbeb"/>
+  <!-- Quill scaled and centered with maskable-safe padding (inner ~60%) -->
+  <g transform="translate(110 100) scale(2.6)">
+    <ellipse cx="22" cy="98" rx="5" ry="7" fill="#1e293b" opacity="0.85"/>
+    <ellipse cx="22" cy="104" rx="3" ry="2" fill="#1e293b" opacity="0.4"/>
+    <path d="M22 95 Q45 72 78 30" stroke="#92400e" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+    <path d="M78 30 Q100 8 108 4 Q95 22 85 38 Q72 56 55 74 Q40 88 22 95 Q38 80 52 64 Q65 50 78 30Z" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+    <path d="M78 30 Q88 14 108 4 Q90 18 80 32 Q68 50 50 68 Q36 82 22 95 Q30 76 44 62 Q58 46 78 30Z" fill="#fde68a" stroke="#d97706" stroke-width="0.8" opacity="0.7"/>
+    <path d="M78 30 Q68 44 55 58" stroke="#b45309" stroke-width="0.7" opacity="0.5"/>
+    <path d="M85 22 Q74 36 60 50" stroke="#b45309" stroke-width="0.7" opacity="0.5"/>
+    <path d="M92 14 Q80 28 66 42" stroke="#b45309" stroke-width="0.7" opacity="0.5"/>
+    <path d="M100 8 Q87 20 73 35" stroke="#b45309" stroke-width="0.7" opacity="0.4"/>
+    <path d="M70 38 Q60 52 46 66" stroke="#b45309" stroke-width="0.7" opacity="0.5"/>
+    <path d="M62 48 Q52 62 38 76" stroke="#b45309" stroke-width="0.7" opacity="0.5"/>
+    <ellipse cx="22" cy="98" rx="8" ry="3" fill="#0f172a" opacity="0.12" transform="rotate(-10 22 98)"/>
+    <circle cx="22" cy="94" r="1.2" fill="white" opacity="0.6"/>
+  </g>
+</svg>

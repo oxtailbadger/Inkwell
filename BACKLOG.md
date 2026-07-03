@@ -15,6 +15,7 @@ Items are roughly ordered by priority within each section. Move things between s
 
 ## Features
 
+- [x] **PWA + Web Share Target** — done (2026-07-02). Installable PWA; on Android the installed app appears in the system share sheet (works from native apps like The Atlantic). iOS doesn't support share_target — users there install a one-time Shortcut that passes the URL to `/share?url=`. Shared links land on /feed with the form open and preview auto-fetched.
 - [ ] **Add more curated authors** — the `authors` table in Supabase drives the feed. Easy to add new RSS feeds without a code deploy. Candidates: Ezra Klein, Matt Levine (Bloomberg), The Economist briefing.
 - [ ] **Article comments / reactions** — a lightweight text reply thread per article so friends can discuss without a group chat.
 - [ ] **Weekly digest email** — a cron-triggered email (Resend or Postmark) with the top-nodded articles from the past 7 days.

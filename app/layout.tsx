@@ -18,6 +18,11 @@ const cormorant = Cormorant_Garamond({
 export const metadata: Metadata = {
   title: "Inkwell",
   description: "Articles worth reading, shared by friends.",
+  appleWebApp: {
+    capable: true,
+    title: "Inkwell",
+    statusBarStyle: "default",
+  },
 };
 
 export default function RootLayout({

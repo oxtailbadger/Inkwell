@@ -28,6 +28,13 @@ export default function FeedClient({
   const searchParams = useSearchParams();
   // Tag filter lives in the URL so filtered views are shareable and survive reloads
   const activeTag = searchParams.get("tag");
+  // Set by /share (Web Share Target); captured once — SubmitArticle seeds
+  // its state from the first value, and we scrub it from the URL below
+  const sharedUrl = useRef(searchParams.get("share")).current;
+
+  useEffect(() => {
+    if (sharedUrl) window.history.replaceState(null, "", "/feed");
+  }, [sharedUrl]);
   const [articles, setArticles] = useState<Article[]>(initialArticles);
   const [activeSection, setActiveSection] = useState("articles");
   const [loading, setLoading] = useState(false);
@@ -144,7 +151,7 @@ export default function FeedClient({
         {/* Main content */}
         <main className="flex-1 min-w-0 space-y-10">
           <section id="articles" className="space-y-6 scroll-mt-20">
-            <SubmitArticle onSubmitted={loadArticles} />
+            <SubmitArticle onSubmitted={loadArticles} initialUrl={sharedUrl ?? undefined} />
 
             {/* Keep the bar visible when a filter is active even if it matched
                 nothing, so "All" is always reachable */}

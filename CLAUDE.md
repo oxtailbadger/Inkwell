@@ -19,6 +19,8 @@ News article sharing app for a small friend group (~10 users).
 - `components/ArticleCard.tsx` — article card with Nods button
 - `components/SubmitArticle.tsx` — share form with preset tags + archive.is field
 - `components/AuthorFeed.tsx` — author RSS section
+- `app/manifest.ts` — PWA manifest with Android share_target
+- `app/share/page.tsx` — share-sheet landing, redirects to /feed?share=
 - `supabase/schema.sql` — articles table
 - `supabase/nods-schema.sql` — nods table
 - `supabase/authors-schema.sql` — authors table + seed data

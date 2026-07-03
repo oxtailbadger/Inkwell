@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const PRESET_TAGS = [
   "Politics",
@@ -33,9 +33,17 @@ async function requestMetadata(url: string): Promise<{ data: OGData | null; manu
   return { data: null, manual: Boolean(body.manual) };
 }
 
-export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState("");
+export function SubmitArticle({
+  onSubmitted,
+  initialUrl,
+}: {
+  onSubmitted: () => void;
+  initialUrl?: string;
+}) {
+  // initialUrl comes from the Web Share Target flow (/share -> /feed?share=);
+  // it seeds the form once — later prop changes are intentionally ignored
+  const [open, setOpen] = useState(Boolean(initialUrl));
+  const [url, setUrl] = useState(initialUrl ?? "");
   const [archiveUrl, setArchiveUrl] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [preview, setPreview] = useState<OGData | null>(null);
@@ -99,6 +107,16 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
       setFetching(false);
     }
   }
+
+  // Auto-fetch the preview when the form was opened by a share
+  const autoPreviewed = useRef(false);
+  useEffect(() => {
+    if (initialUrl && !autoPreviewed.current) {
+      autoPreviewed.current = true;
+      fetchPreview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSubmit() {
     setSubmitting(true);
