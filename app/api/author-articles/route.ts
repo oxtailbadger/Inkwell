@@ -47,18 +47,34 @@ export async function GET() {
     (authors ?? []).map(async (author) => {
       try {
         const feed = await parser.parseURL(author.rss_url);
-        const articles = feed.items
-          .filter((item) => !isPaywalled(item))
-          .slice(0, 3)
-          .map((item) => ({
-            url: item.link ?? "",
-            title: item.title ?? null,
-            description: item.contentSnippet?.slice(0, 200) ?? null,
-            published_at: item.pubDate ?? null,
-          }));
+        const [free, paywalled] = feed.items.reduce<[RSSItem[], RSSItem[]]>(
+          (acc, item) => (acc[isPaywalled(item) ? 1 : 0].push(item), acc),
+          [[], []]
+        );
+
+        // Log what the heuristics filtered so we notice when they misfire
+        // (e.g. Substack rewords its paid-teaser text) — check Vercel logs
+        console.log(
+          `[author-articles] ${author.name}: ${feed.items.length} items, ` +
+            `${paywalled.length} filtered as paywalled` +
+            (paywalled.length ? ` (${paywalled.map((i) => i.title).join(" | ")})` : "")
+        );
+        if (free.length === 0 && feed.items.length > 0) {
+          console.warn(
+            `[author-articles] ${author.name}: every item filtered as paywalled — heuristics likely misfiring`
+          );
+        }
+
+        const articles = free.slice(0, 3).map((item) => ({
+          url: item.link ?? "",
+          title: item.title ?? null,
+          description: item.contentSnippet?.slice(0, 200) ?? null,
+          published_at: item.pubDate ?? null,
+        }));
 
         return { id: author.id, name: author.name, website_url: author.website_url, articles };
-      } catch {
+      } catch (err) {
+        console.error(`[author-articles] failed to fetch feed for ${author.name} (${author.rss_url}):`, err);
         return { id: author.id, name: author.name, website_url: author.website_url, articles: [] };
       }
     })

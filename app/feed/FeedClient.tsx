@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ArticleCard } from "@/components/ArticleCard";
 import { SubmitArticle } from "@/components/SubmitArticle";
@@ -29,15 +29,27 @@ const NAV_ITEMS = [
   { label: "Authors", href: "#authors" },
 ];
 
-export default function FeedClient({ userEmail, userId }: { userEmail: string; userId: string }) {
-  const router = useRouter();
+export default function FeedClient({
+  userEmail,
+  userId,
+  initialArticles,
+  initialTag,
+}: {
+  userEmail: string;
+  userId: string;
+  initialArticles: Article[];
+  initialTag: string | null;
+}) {
   const searchParams = useSearchParams();
   // Tag filter lives in the URL so filtered views are shareable and survive reloads
   const activeTag = searchParams.get("tag");
-  const [articles, setArticles] = useState<Article[]>([]);
+  const [articles, setArticles] = useState<Article[]>(initialArticles);
   const [activeSection, setActiveSection] = useState("articles");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
+  // The first render is already populated by the server; only refetch after
+  // that when the tag changes or a submission triggers a reload
+  const hydratedFromServer = useRef(true);
 
   const loadArticles = useCallback(async () => {
     setLoading(true);
@@ -54,10 +66,19 @@ export default function FeedClient({ userEmail, userId }: { userEmail: string; u
     setLoading(false);
   }, [activeTag]);
 
-  useEffect(() => { loadArticles(); }, [loadArticles]);
+  useEffect(() => {
+    if (hydratedFromServer.current && activeTag === initialTag) {
+      hydratedFromServer.current = false;
+      return;
+    }
+    hydratedFromServer.current = false;
+    loadArticles();
+  }, [loadArticles, activeTag, initialTag]);
 
+  // Shallow history update: syncs useSearchParams without a server round-trip
+  // (the tag-change effect below does the client-side fetch)
   function setActiveTag(tag: string | null) {
-    router.replace(tag ? `/feed?tag=${encodeURIComponent(tag)}` : "/feed", { scroll: false });
+    window.history.replaceState(null, "", tag ? `/feed?tag=${encodeURIComponent(tag)}` : "/feed");
   }
 
   // Track which section is in view based on scroll position

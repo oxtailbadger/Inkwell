@@ -7,8 +7,8 @@ Items are roughly ordered by priority within each section. Move things between s
 ## Beta polish (small, high impact)
 
 - [ ] **Mobile sidebar** — the `<aside>` is `hidden lg:block`, so mobile users have no way to jump to Authors. A bottom nav bar or a drawer would work.
-- [ ] **Show who shared** — article cards say "Friend" for everyone. Consider showing first name or initials if users add a display name.
-- [ ] **Tag filter persistence** — active tag filter resets on page reload. Could store in URL param (`?tag=politics`) so links are shareable.
+- [x] **Show who shared** — done via `profiles` table (2026-07-02). Requires running `supabase/profiles-schema.sql`. A UI for users to edit their display name is a possible follow-up.
+- [x] **Tag filter persistence** — done (2026-07-02). Tag lives in `?tag=` via shallow history updates.
 - [ ] **Empty tag state** — if a tag filter returns zero articles, there's no message explaining why.
 
 ---

@@ -9,8 +9,9 @@ News article sharing app for a small friend group (~10 users).
 **Auth:** Supabase magic link (email OTP), callback at /api/auth/callback
 
 ## Key files
-- `app/feed/FeedClient.tsx` — main feed page (sidebar, articles grid, author feed)
-- `app/api/articles/route.ts` — GET/POST/DELETE articles, includes nod counts
+- `app/feed/FeedClient.tsx` — main feed page (sidebar, articles grid, author feed); first page is server-rendered via page.tsx, tag filter lives in ?tag= URL param
+- `lib/articles.ts` — shared article fetch + enrichment (nods, submitter names), used by both the API route and the server page
+- `app/api/articles/route.ts` — GET/POST/DELETE articles
 - `app/api/nods/route.ts` — toggle nod (upvote) on an article
 - `app/api/fetch-og/route.ts` — Microlink metadata fetch with manual fallback
 - `app/api/author-articles/route.ts` — RSS feed for Ben Thompson + Derek Thompson
@@ -20,6 +21,9 @@ News article sharing app for a small friend group (~10 users).
 - `supabase/schema.sql` — articles table
 - `supabase/nods-schema.sql` — nods table
 - `supabase/authors-schema.sql` — authors table + seed data
+- `supabase/profiles-schema.sql` — profiles table (display names) + signup trigger + backfill
+
+See also: `DECISIONS.md` (non-obvious choices and gotchas), `BACKLOG.md` (prioritized todo).
 
 ## Conventions
 - Tags stored lowercase, displayed with `capitalize` CSS
