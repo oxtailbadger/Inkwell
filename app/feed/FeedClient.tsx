@@ -116,7 +116,7 @@ export default function FeedClient({
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 py-6 flex gap-8">
+      <div className="max-w-6xl mx-auto px-4 py-6 flex gap-8 pb-20 lg:pb-6">
 
         {/* Sidebar */}
         <aside className="hidden lg:block w-44 shrink-0">
@@ -146,7 +146,9 @@ export default function FeedClient({
           <section id="articles" className="space-y-6 scroll-mt-20">
             <SubmitArticle onSubmitted={loadArticles} />
 
-            {allTags.length > 0 && (
+            {/* Keep the bar visible when a filter is active even if it matched
+                nothing, so "All" is always reachable */}
+            {(allTags.length > 0 || activeTag) && (
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setActiveTag(null)}
@@ -187,8 +189,22 @@ export default function FeedClient({
             ) : !feedError && articles.length === 0 ? (
               <div className="text-center py-20 text-gray-400">
                 <p className="text-4xl mb-3">📰</p>
-                <p className="font-medium">No articles yet</p>
-                <p className="text-sm mt-1">Be the first to share something worth reading.</p>
+                {activeTag ? (
+                  <>
+                    <p className="font-medium">No articles tagged yet</p>
+                    <button
+                      onClick={() => setActiveTag(null)}
+                      className="text-sm mt-1 text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Show all articles
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium">No articles yet</p>
+                    <p className="text-sm mt-1">Be the first to share something worth reading.</p>
+                  </>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -209,6 +225,25 @@ export default function FeedClient({
           </section>
         </main>
       </div>
+
+      {/* Mobile bottom nav — the sidebar is desktop-only */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-10 bg-white border-t border-gray-200 flex">
+        {NAV_ITEMS.map(({ label, href }) => {
+          const sectionId = href.replace("#", "");
+          const isActive = activeSection === sectionId;
+          return (
+            <a
+              key={href}
+              href={href}
+              className={`flex-1 py-3 text-center text-sm font-medium transition-colors ${
+                isActive ? "text-slate-900 border-t-2 border-slate-900 -mt-px" : "text-gray-500"
+              }`}
+            >
+              {label}
+            </a>
+          );
+        })}
+      </nav>
     </div>
   );
 }

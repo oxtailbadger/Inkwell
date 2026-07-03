@@ -6,10 +6,10 @@ Items are roughly ordered by priority within each section. Move things between s
 
 ## Beta polish (small, high impact)
 
-- [ ] **Mobile sidebar** — the `<aside>` is `hidden lg:block`, so mobile users have no way to jump to Authors. A bottom nav bar or a drawer would work.
-- [x] **Show who shared** — done via `profiles` table (2026-07-02). Requires running `supabase/profiles-schema.sql`. A UI for users to edit their display name is a possible follow-up.
+- [x] **Mobile sidebar** — done (2026-07-02). Fixed bottom nav bar on mobile with the same Articles/Authors links and active state.
+- [x] **Show who shared** — done via `profiles` table (2026-07-02); SQL has been run in Supabase. Display names default to the email prefix; custom display-name editing deliberately not supported for now (Paul's call).
 - [x] **Tag filter persistence** — done (2026-07-02). Tag lives in `?tag=` via shallow history updates.
-- [ ] **Empty tag state** — if a tag filter returns zero articles, there's no message explaining why.
+- [x] **Empty tag state** — done (2026-07-02). Shows "No articles tagged yet" with a button back to All; the tag bar stays visible on empty results so "All" is always reachable.
 
 ---
 
