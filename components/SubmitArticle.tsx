@@ -39,6 +39,7 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
   const [archiveUrl, setArchiveUrl] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [preview, setPreview] = useState<OGData | null>(null);
+  const [archiveSuggested, setArchiveSuggested] = useState(false);
   const [manualMode, setManualMode] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
   const [manualDescription, setManualDescription] = useState("");
@@ -52,9 +53,25 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
     );
   }
 
+  // Best-effort: look up an existing archive.today snapshot and pre-fill the
+  // archive field. Fired alongside the preview fetch, never blocks it.
+  async function checkArchive(articleUrl: string) {
+    try {
+      const res = await fetch(`/api/archive-check?url=${encodeURIComponent(articleUrl)}`);
+      const body = await res.json();
+      if (res.ok && body.found && body.archive_url && !archiveUrl) {
+        setArchiveUrl(body.archive_url);
+        setArchiveSuggested(true);
+      }
+    } catch {
+      // Lookup is a bonus; the manual field and links still work
+    }
+  }
+
   function reset() {
     setUrl("");
     setArchiveUrl("");
+    setArchiveSuggested(false);
     setSelectedTags([]);
     setPreview(null);
     setManualMode(false);
@@ -70,6 +87,7 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
     setError(null);
     setManualMode(false);
     setPreview(null);
+    void checkArchive(url);
     try {
       const { data, manual } = await requestMetadata(url);
       if (manual) setManualMode(true);
@@ -145,7 +163,13 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
             <input
               type="url"
               value={url}
-              onChange={(e) => { setUrl(e.target.value); setPreview(null); setManualMode(false); }}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                setPreview(null);
+                setManualMode(false);
+                // A suggested snapshot belongs to the previous URL
+                if (archiveSuggested) { setArchiveUrl(""); setArchiveSuggested(false); }
+              }}
               placeholder="Paste article URL…"
               className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -218,22 +242,49 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
           <div>
             <p className="text-xs font-medium text-gray-500 mb-2">
               Do you have an archive.is link?{" "}
-              <a
-                href="https://archive.is"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-amber-600 hover:text-amber-800 underline"
-              >
-                Open archive.is ↗
-              </a>
+              {url ? (
+                <>
+                  <a
+                    href={`https://archive.ph/newest/${url}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-amber-600 hover:text-amber-800 underline"
+                  >
+                    Find snapshot ↗
+                  </a>
+                  {" · "}
+                  <a
+                    href={`https://archive.ph/?url=${encodeURIComponent(url)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-amber-600 hover:text-amber-800 underline"
+                  >
+                    Create one ↗
+                  </a>
+                </>
+              ) : (
+                <a
+                  href="https://archive.is"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-600 hover:text-amber-800 underline"
+                >
+                  Open archive.is ↗
+                </a>
+              )}
             </p>
             <input
               type="url"
               value={archiveUrl}
-              onChange={(e) => setArchiveUrl(e.target.value)}
+              onChange={(e) => { setArchiveUrl(e.target.value); setArchiveSuggested(false); }}
               placeholder="https://archive.is/…"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            {archiveSuggested && archiveUrl && (
+              <p className="text-xs text-green-700 mt-1.5">
+                Found an existing snapshot — clear it if you&apos;d rather not include it.
+              </p>
+            )}
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}

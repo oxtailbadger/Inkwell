@@ -19,7 +19,7 @@ Items are roughly ordered by priority within each section. Move things between s
 - [ ] **Article comments / reactions** — a lightweight text reply thread per article so friends can discuss without a group chat.
 - [ ] **Weekly digest email** — a cron-triggered email (Resend or Postmark) with the top-nodded articles from the past 7 days.
 - [ ] **Search** — basic title/description search across saved articles.
-- [ ] **Archive.is auto-suggest** — after a URL is submitted, auto-fetch and pre-fill the archive link so users don't have to do it manually.
+- [x] **Archive.is auto-suggest** — done (2026-07-02). `/api/archive-check` tries to pre-fill an existing snapshot on Preview; archive.today's anti-bot layer 429s most automated lookups, so the reliable path is the "Find snapshot" / "Create one" pre-filled links in the form. See DECISIONS.md before touching this.
 
 ---
 

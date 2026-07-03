@@ -14,6 +14,7 @@ News article sharing app for a small friend group (~10 users).
 - `app/api/articles/route.ts` — GET/POST/DELETE articles
 - `app/api/nods/route.ts` — toggle nod (upvote) on an article
 - `app/api/fetch-og/route.ts` — Microlink metadata fetch with manual fallback
+- `app/api/archive-check/route.ts` — best-effort archive.today snapshot lookup (see DECISIONS.md)
 - `app/api/author-articles/route.ts` — RSS feed for Ben Thompson + Derek Thompson
 - `components/ArticleCard.tsx` — article card with Nods button
 - `components/SubmitArticle.tsx` — share form with preset tags + archive.is field
