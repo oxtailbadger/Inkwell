@@ -15,6 +15,8 @@ Items are roughly ordered by priority within each section. Move things between s
 
 ## Features
 
+**Suggested sequencing (noted 2026-07-02):** Pull quotes and the bookmarklet are the smallest items — both build on things that already exist (the articles table and the `/share` route respectively) and are good quick wins. If comments are the eventual goal, build **save-for-later + mark-as-read before comments**: it introduces the app's first per-user private state (a per-user, per-article table with RLS scoped to the owning user, unlike nods which are readable by everyone), and comments can then reuse those table/RLS patterns. Reader view should stay last — highest effort, and full-text search gets more valuable if it lands (article body becomes searchable).
+
 - [x] **PWA + Web Share Target** — done (2026-07-02). Installable PWA; on Android the installed app appears in the system share sheet (works from native apps like The Atlantic). iOS doesn't support share_target — users there install a one-time Shortcut that passes the URL to `/share?url=`. Shared links land on /feed with the form open and preview auto-fetched.
 - [ ] **Add more curated authors** — the `authors` table in Supabase drives the feed. Easy to add new RSS feeds without a code deploy. Candidates: Ezra Klein, Matt Levine (Bloomberg), The Economist briefing.
 - [ ] **Article comments / reactions** — a lightweight text reply thread per article so friends can discuss without a group chat.
