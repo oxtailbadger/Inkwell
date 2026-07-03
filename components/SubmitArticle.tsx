@@ -20,6 +20,19 @@ type OGData = {
   site_name: string | null;
 };
 
+// data is null when metadata couldn't be fetched; manual means the site
+// blocks automated previews and the user should fill in details themselves
+async function requestMetadata(url: string): Promise<{ data: OGData | null; manual: boolean }> {
+  const res = await fetch("/api/fetch-og", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+  const body = await res.json();
+  if (res.ok) return { data: body, manual: false };
+  return { data: null, manual: Boolean(body.manual) };
+}
+
 export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
@@ -58,21 +71,10 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
     setManualMode(false);
     setPreview(null);
     try {
-      const res = await fetch("/api/fetch-og", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
-      const body = await res.json();
-      if (!res.ok) {
-        if (body.manual) {
-          setManualMode(true);
-        } else {
-          setError("Could not fetch article metadata");
-        }
-        return;
-      }
-      setPreview(body);
+      const { data, manual } = await requestMetadata(url);
+      if (manual) setManualMode(true);
+      else if (data) setPreview(data);
+      else setError("Could not fetch article metadata");
     } catch {
       setError("Could not fetch article metadata");
     } finally {
@@ -87,19 +89,13 @@ export function SubmitArticle({ onSubmitted }: { onSubmitted: () => void }) {
       let ogData: OGData | null = preview;
 
       if (!ogData && !manualMode) {
-        const ogRes = await fetch("/api/fetch-og", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url }),
-        });
-        const body = await ogRes.json();
-        if (ogRes.ok) {
-          ogData = body;
-        } else if (body.manual) {
+        const { data, manual } = await requestMetadata(url);
+        if (manual) {
           setManualMode(true);
           setSubmitting(false);
           return;
         }
+        ogData = data;
       }
 
       if (manualMode) {

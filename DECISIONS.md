@@ -65,4 +65,4 @@ Tags are normalized to lowercase on insert. Display uses Tailwind's `capitalize`
 
 ## Supabase composite primary key for nods
 
-`nods` table has a composite PK of `(article_id, user_id)`. The toggle endpoint (`app/api/nods/route.ts`) attempts an insert and catches the unique constraint violation as the "already nodded" signal, then deletes instead. No separate SELECT needed.
+`nods` table has a composite PK of `(article_id, user_id)`. The toggle endpoint (`app/api/nods/route.ts`) does a SELECT to check for an existing nod, then INSERTs or DELETEs accordingly. There is a benign race if the same user toggles twice concurrently (e.g. double-click), but the composite PK makes the duplicate insert fail harmlessly and the client's optimistic UI reverts.

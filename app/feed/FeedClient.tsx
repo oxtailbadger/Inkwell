@@ -7,22 +7,7 @@ import { ArticleCard } from "@/components/ArticleCard";
 import { SubmitArticle } from "@/components/SubmitArticle";
 import { QuillIcon } from "@/components/QuillIcon";
 import { AuthorFeed } from "@/components/AuthorFeed";
-
-type Article = {
-  id: string;
-  url: string;
-  title: string | null;
-  description: string | null;
-  image_url: string | null;
-  site_name: string | null;
-  tags: string[];
-  archive_url: string | null;
-  submitted_by: string;
-  created_at: string;
-  nod_count: number;
-  user_has_nodded: boolean;
-  submitter_name: string | null;
-};
+import type { Article } from "@/lib/articles";
 
 const NAV_ITEMS = [
   { label: "Articles", href: "#articles" },
@@ -54,16 +39,18 @@ export default function FeedClient({
   const loadArticles = useCallback(async () => {
     setLoading(true);
     setFeedError(null);
-    const url = activeTag ? `/api/articles?tag=${encodeURIComponent(activeTag)}` : "/api/articles";
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!res.ok) {
-      setFeedError(data.error ?? "Failed to load articles");
-      setArticles([]);
-    } else {
+    try {
+      const url = activeTag ? `/api/articles?tag=${encodeURIComponent(activeTag)}` : "/api/articles";
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load articles");
       setArticles(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setFeedError(`Could not load articles: ${e instanceof Error ? e.message : "network error"}`);
+      setArticles([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [activeTag]);
 
   useEffect(() => {
@@ -94,8 +81,13 @@ export default function FeedClient({
   }, []);
 
   async function handleDelete(id: string) {
-    await fetch(`/api/articles?id=${id}`, { method: "DELETE" });
-    setArticles((prev) => prev.filter((a) => a.id !== id));
+    try {
+      const res = await fetch(`/api/articles?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setArticles((prev) => prev.filter((a) => a.id !== id));
+    } catch {
+      setFeedError("Could not remove the article. Please try again.");
+    }
   }
 
   async function handleSignOut() {
@@ -182,7 +174,7 @@ export default function FeedClient({
 
             {feedError && (
               <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                Could not load articles: {feedError}
+                {feedError}
               </div>
             )}
 

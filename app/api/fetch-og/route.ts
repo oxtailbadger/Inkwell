@@ -15,10 +15,9 @@ export async function POST(request: NextRequest) {
     );
 
     const json = await res.json();
-    console.log("[fetch-og] Microlink response:", JSON.stringify(json, null, 2));
 
     if (json.status !== "success") {
-      console.error("[fetch-og] Microlink failed:", json.message ?? json.status);
+      console.error(`[fetch-og] Microlink failed for ${url}: ${json.code ?? ""} ${json.message ?? json.status}`);
       const needsManual = json.code === "EPROXYNEEDED";
       return NextResponse.json(
         { error: "Could not fetch metadata", manual: needsManual },

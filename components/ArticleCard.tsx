@@ -2,22 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-
-type Article = {
-  id: string;
-  url: string;
-  title: string | null;
-  description: string | null;
-  image_url: string | null;
-  site_name: string | null;
-  tags: string[];
-  archive_url: string | null;
-  submitted_by: string;
-  created_at: string;
-  nod_count: number;
-  user_has_nodded: boolean;
-  submitter_name: string | null;
-};
+import type { Article } from "@/lib/articles";
 
 export function ArticleCard({
   article,
@@ -44,18 +29,20 @@ export function ArticleCard({
     setHasNodded((prev) => !prev);
     setNodCount((prev) => hasNodded ? prev - 1 : prev + 1);
 
-    const res = await fetch("/api/nods", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ article_id: article.id }),
-    });
-
-    if (!res.ok) {
-      // Revert on failure
+    try {
+      const res = await fetch("/api/nods", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ article_id: article.id }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      // Revert on failure (non-OK response or network error)
       setHasNodded((prev) => !prev);
       setNodCount((prev) => hasNodded ? prev + 1 : prev - 1);
+    } finally {
+      setNodding(false);
     }
-    setNodding(false);
   }
 
   return (

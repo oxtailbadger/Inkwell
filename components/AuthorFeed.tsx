@@ -19,11 +19,16 @@ type Author = {
 export function AuthorFeed() {
   const [authors, setAuthors] = useState<Author[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     fetch("/api/author-articles")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
       .then((data) => setAuthors(Array.isArray(data) ? data : []))
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -33,6 +38,15 @@ export function AuthorFeed() {
         {[...Array(2)].map((_, i) => (
           <div key={i} className="bg-white rounded-xl border border-gray-200 h-40 animate-pulse" />
         ))}
+      </div>
+    );
+  }
+
+  if (failed) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-base font-medium text-gray-400 tracking-widest uppercase" style={{ fontFamily: "var(--font-display)", letterSpacing: "0.18em" }}>From the Authors</h2>
+        <p className="text-sm text-gray-400">Couldn&apos;t load author feeds right now — try refreshing.</p>
       </div>
     );
   }

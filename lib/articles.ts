@@ -1,5 +1,23 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+// Single source of truth for the article shape the feed consumes:
+// the articles row plus the enrichment added by fetchEnrichedArticles.
+export type Article = {
+  id: string;
+  url: string;
+  title: string | null;
+  description: string | null;
+  image_url: string | null;
+  site_name: string | null;
+  tags: string[];
+  archive_url: string | null;
+  submitted_by: string;
+  created_at: string;
+  nod_count: number;
+  user_has_nodded: boolean;
+  submitter_name: string | null;
+};
+
 // Shared by GET /api/articles and the server-rendered feed page.
 // Fetches articles (optionally filtered by tag) and enriches each with
 // nod counts and the submitter's display name, one batched query each.
@@ -31,7 +49,7 @@ export async function fetchEnrichedArticles(
 
   const nodsData = nods ?? [];
   const nameById = new Map((profiles ?? []).map((p) => [p.id, p.display_name]));
-  const enriched = (articles ?? []).map((article) => ({
+  const enriched: Article[] = (articles ?? []).map((article) => ({
     ...article,
     nod_count: nodsData.filter((n) => n.article_id === article.id).length,
     user_has_nodded: nodsData.some((n) => n.article_id === article.id && n.user_id === userId),
