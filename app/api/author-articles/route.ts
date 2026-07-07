@@ -72,10 +72,22 @@ export async function GET() {
           published_at: item.pubDate ?? null,
         }));
 
-        return { id: author.id, name: author.name, website_url: author.website_url, articles };
+        return {
+          id: author.id,
+          name: author.name,
+          website_url: author.website_url,
+          site_icon_url: author.site_icon_url ?? null,
+          articles,
+        };
       } catch (err) {
         console.error(`[author-articles] failed to fetch feed for ${author.name} (${author.rss_url}):`, err);
-        return { id: author.id, name: author.name, website_url: author.website_url, articles: [] };
+        return {
+          id: author.id,
+          name: author.name,
+          website_url: author.website_url,
+          site_icon_url: author.site_icon_url ?? null,
+          articles: [],
+        };
       }
     })
   );

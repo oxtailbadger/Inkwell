@@ -13,8 +13,51 @@ type Author = {
   id: string;
   name: string;
   website_url: string;
+  site_icon_url: string | null;
   articles: AuthorArticle[];
 };
+
+// Same fallback chain as ArticleCard: an optional stored override, else
+// Google's favicon service by domain, else the caller falls back to the
+// letter monogram if this errors or the URL is unparseable.
+function iconSrc(author: Pick<Author, "website_url" | "site_icon_url">): string | null {
+  if (author.site_icon_url) return author.site_icon_url;
+  try {
+    const host = new URL(author.website_url).hostname;
+    return `https://www.google.com/s2/favicons?domain=${host}&sz=64`;
+  } catch {
+    return null;
+  }
+}
+
+// Own component (not inline in the map) so each card tracks its own
+// image-load failure independently
+function AuthorAvatar({ author }: { author: Author }) {
+  const [failed, setFailed] = useState(false);
+  const src = iconSrc(author);
+
+  return (
+    <div
+      className="flex-none w-11 h-11 rounded-[10px] bg-amber-50 border border-amber-200 flex items-center justify-center overflow-hidden text-[20px] font-semibold text-amber-700"
+      style={{ fontFamily: "var(--font-display)" }}
+      aria-hidden="true"
+    >
+      {src && !failed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt=""
+          width={28}
+          height={28}
+          className="w-7 h-7 object-contain"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        author.name.charAt(0).toUpperCase()
+      )}
+    </div>
+  );
+}
 
 // The design spec's meta line is "Publication · count", but authors.website_url
 // is the only source we have — no separate publication-name field — so we
@@ -76,13 +119,7 @@ export function AuthorFeed() {
                 on one line — the button drops to its own row rather than
                 the name getting crushed and truncated */}
             <div className="flex flex-wrap items-center gap-x-[13px] gap-y-2 px-[18px] py-4 border-b border-gray-100">
-              <div
-                className="flex-none w-11 h-11 rounded-[10px] bg-amber-50 border border-amber-200 flex items-center justify-center text-[20px] font-semibold text-amber-700"
-                style={{ fontFamily: "var(--font-display)" }}
-                aria-hidden="true"
-              >
-                {author.name.charAt(0).toUpperCase()}
-              </div>
+              <AuthorAvatar author={author} />
               <div className="flex-1 min-w-[120px]">
                 <p
                   className="text-[19px] font-semibold leading-[1.15] text-gray-900 truncate"
