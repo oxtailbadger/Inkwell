@@ -126,7 +126,7 @@ export default function FeedClient({
       <div className="max-w-6xl mx-auto px-4 py-6 flex gap-8 pb-20 lg:pb-6">
 
         {/* Sidebar */}
-        <aside className="hidden lg:block w-44 shrink-0">
+        <aside className="hidden lg:block w-44 shrink-0 lg:border-r lg:border-amber-200">
           <nav className="sticky top-20 space-y-1">
             {NAV_ITEMS.map(({ label, href }) => {
               const sectionId = href.replace("#", "");
@@ -137,8 +137,8 @@ export default function FeedClient({
                   href={href}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? "bg-slate-900 text-white"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                      ? "bg-amber-700 text-white"
+                      : "text-gray-600 hover:bg-amber-50 hover:text-gray-900"
                   }`}
                 >
                   {label}
@@ -160,7 +160,7 @@ export default function FeedClient({
                 <button
                   onClick={() => setActiveTag(null)}
                   className={`text-sm rounded-full px-3 py-1 font-medium transition-colors ${
-                    activeTag === null ? "bg-blue-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                    activeTag === null ? "bg-amber-700 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-amber-50"
                   }`}
                 >
                   All
@@ -170,7 +170,7 @@ export default function FeedClient({
                     key={tag}
                     onClick={() => setActiveTag(tag === activeTag ? null : tag)}
                     className={`text-sm rounded-full px-3 py-1 font-medium transition-colors capitalize ${
-                      activeTag === tag ? "bg-blue-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                      activeTag === tag ? "bg-amber-700 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-amber-50"
                     }`}
                   >
                     {tag}
@@ -234,7 +234,7 @@ export default function FeedClient({
       </div>
 
       {/* Mobile bottom nav — the sidebar is desktop-only */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-10 bg-white border-t border-gray-200 flex">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-10 bg-white border-t border-amber-200 flex">
         {NAV_ITEMS.map(({ label, href }) => {
           const sectionId = href.replace("#", "");
           const isActive = activeSection === sectionId;
@@ -243,7 +243,7 @@ export default function FeedClient({
               key={href}
               href={href}
               className={`flex-1 py-3 text-center text-sm font-medium transition-colors ${
-                isActive ? "text-slate-900 border-t-2 border-slate-900 -mt-px" : "text-gray-500"
+                isActive ? "text-amber-700 border-t-2 border-amber-700 -mt-px" : "text-gray-500"
               }`}
             >
               {label}

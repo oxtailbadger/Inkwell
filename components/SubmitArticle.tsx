@@ -171,7 +171,7 @@ export function SubmitArticle({
       {!open ? (
         <button
           onClick={() => setOpen(true)}
-          className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
+          className="bg-amber-700 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-amber-800 transition-colors"
         >
           + Share article
         </button>
@@ -246,8 +246,8 @@ export function SubmitArticle({
                     onClick={() => toggleTag(tag)}
                     className={`rounded-full px-3 py-1 text-sm font-medium border transition-colors ${
                       active
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600"
+                        ? "bg-amber-700 text-white border-amber-700"
+                        : "bg-white text-gray-600 border-gray-300 hover:border-amber-400 hover:text-amber-700"
                     }`}
                   >
                     {tag}
@@ -317,7 +317,7 @@ export function SubmitArticle({
             <button
               onClick={handleSubmit}
               disabled={!url || submitting || (manualMode && !manualTitle.trim())}
-              className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              className="bg-amber-700 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-amber-800 disabled:opacity-50"
             >
               {submitting ? "Sharing…" : "Share"}
             </button>
