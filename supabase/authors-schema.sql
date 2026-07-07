@@ -15,7 +15,11 @@ create policy "Anyone authenticated can read authors"
   to authenticated
   using (true);
 
--- Seed the two authors
+-- Seed the authors
 insert into public.authors (name, rss_url, website_url) values
   ('Ben Thompson', 'https://stratechery.com/feed/', 'https://stratechery.com'),
   ('Derek Thompson', 'https://www.derekthompson.org/feed', 'https://www.derekthompson.org');
+
+-- Added 2026-07-06 (run separately if the table already exists):
+insert into public.authors (name, rss_url, website_url) values
+  ('Phil Gaimon', 'https://philgaimon.substack.com/feed', 'https://philgaimon.substack.com');
