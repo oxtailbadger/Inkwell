@@ -18,6 +18,7 @@ type OGData = {
   description: string | null;
   image_url: string | null;
   site_name: string | null;
+  site_icon_url: string | null;
 };
 
 // data is null when metadata couldn't be fetched; manual means the site
@@ -140,6 +141,7 @@ export function SubmitArticle({
           description: manualDescription.trim() || null,
           image_url: null,
           site_name: null,
+          site_icon_url: null,
         };
       }
 

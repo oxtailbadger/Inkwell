@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { url, title, description, image_url, site_name, tags, archive_url } = body;
+  const { url, title, description, image_url, site_name, site_icon_url, tags, archive_url } = body;
 
   if (!url) return NextResponse.json({ error: "URL required" }, { status: 400 });
 
@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
     description,
     image_url,
     site_name,
+    site_icon_url: site_icon_url || null,
     tags: tags ?? [],
     archive_url: archive_url || null,
     submitted_by: user.id,

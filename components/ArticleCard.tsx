@@ -16,11 +16,19 @@ export function ArticleCard({
   const [nodCount, setNodCount] = useState(article.nod_count);
   const [hasNodded, setHasNodded] = useState(article.user_has_nodded);
   const [nodding, setNodding] = useState(false);
+  const [iconFailed, setIconFailed] = useState(false);
 
   const isOwner = article.submitted_by === currentUserId;
   const domain = (() => {
     try { return new URL(article.url).hostname.replace("www.", ""); } catch { return ""; }
   })();
+
+  // Publication badge: stored Microlink logo, else Google's favicon service
+  // (covers pre-existing rows and manual-mode submissions), else the letter
+  // monogram if the image 404s or the URL is unparseable
+  const iconSrc =
+    article.site_icon_url ??
+    (domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=64` : null);
 
   async function toggleNod() {
     if (nodding) return;
@@ -64,11 +72,23 @@ export function ArticleCard({
         <div className="flex items-center justify-between mb-[10px]">
           <div className="flex items-center gap-[9px] min-w-0">
             <div
-              className="flex-none w-[26px] h-[26px] rounded-[7px] bg-amber-50 border border-amber-200 flex items-center justify-center text-xs font-semibold text-amber-700"
+              className="flex-none w-[26px] h-[26px] rounded-[7px] bg-amber-50 border border-amber-200 flex items-center justify-center overflow-hidden text-xs font-semibold text-amber-700"
               style={{ fontFamily: "var(--font-display)" }}
               aria-hidden="true"
             >
-              {(article.site_name ?? domain).charAt(0).toUpperCase()}
+              {iconSrc && !iconFailed ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={iconSrc}
+                  alt=""
+                  width={20}
+                  height={20}
+                  className="w-5 h-5 object-contain"
+                  onError={() => setIconFailed(true)}
+                />
+              ) : (
+                (article.site_name ?? domain).charAt(0).toUpperCase()
+              )}
             </div>
             <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider truncate">
               {article.site_name ?? domain}

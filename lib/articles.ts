@@ -9,6 +9,7 @@ export type Article = {
   description: string | null;
   image_url: string | null;
   site_name: string | null;
+  site_icon_url: string | null;
   tags: string[];
   archive_url: string | null;
   submitted_by: string;

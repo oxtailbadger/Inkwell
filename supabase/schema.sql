@@ -7,6 +7,7 @@ create table public.articles (
   description text,
   image_url text,
   site_name text,
+  site_icon_url text,
   submitted_by uuid references auth.users(id) on delete cascade not null,
   tags text[] default '{}',
   archive_url text,
@@ -15,6 +16,11 @@ create table public.articles (
 
 -- Run this if the table already exists:
 -- alter table public.articles add column if not exists archive_url text;
+
+-- Added 2026-07-07: publication logo captured from Microlink at upload time
+-- (render falls back to Google's favicon service when null, so old rows work).
+-- Run separately if the table already exists:
+-- alter table public.articles add column if not exists site_icon_url text;
 
 -- Users can read all articles, but only insert/update/delete their own
 alter table public.articles enable row level security;

@@ -29,8 +29,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       title: data.title ?? null,
       description: data.description ?? null,
-      image_url: data.image?.url ?? data.logo?.url ?? null,
+      // logo no longer doubles as the hero-image fallback — it has its own
+      // field now and renders as the publication badge on the card
+      image_url: data.image?.url ?? null,
       site_name: data.publisher ?? null,
+      site_icon_url: data.logo?.url ?? null,
     });
   } catch (e) {
     console.error("[fetch-og] Error:", e);
