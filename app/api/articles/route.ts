@@ -64,6 +64,22 @@ export async function DELETE(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
+  // A delete with a submitted_by filter that matches zero rows doesn't error
+  // — it silently no-ops — so a non-owner DELETE used to return 200 with
+  // nothing actually removed. Look up ownership first to return an honest
+  // 404 (doesn't exist) or 403 (exists, not yours).
+  const { data: existing, error: lookupError } = await supabase
+    .from("articles")
+    .select("submitted_by")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (lookupError) return dbErrorResponse("articles:DELETE", lookupError, "Could not remove the article. Please try again.");
+  if (!existing) return NextResponse.json({ error: "Article not found" }, { status: 404 });
+  if (existing.submitted_by !== user.id) {
+    return NextResponse.json({ error: "You can only remove articles you shared" }, { status: 403 });
+  }
+
   const { error } = await supabase.from("articles").delete().eq("id", id).eq("submitted_by", user.id);
   if (error) return dbErrorResponse("articles:DELETE", error, "Could not remove the article. Please try again.");
   return NextResponse.json({ success: true });

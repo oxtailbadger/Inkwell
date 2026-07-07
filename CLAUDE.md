@@ -23,6 +23,8 @@ News article sharing app for a small friend group (~10 users).
 - `components/AuthorFeed.tsx` — author RSS section
 - `app/manifest.ts` — PWA manifest with Android share_target
 - `app/share/page.tsx` — share-sheet landing, redirects to /feed?share=
+- `app/error.tsx` / `app/not-found.tsx` — themed error/404 pages (match login page's amber card style)
+- `proxy.ts` — session refresh + auth redirect (Next 16's middleware.ts renamed to proxy.ts)
 - `supabase/schema.sql` — articles table
 - `supabase/nods-schema.sql` — nods table
 - `supabase/authors-schema.sql` — authors table + seed data

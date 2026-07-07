@@ -21,6 +21,9 @@ function makeSupabaseMock({
   insertError = null,
   selectData = [mockArticle],
   selectError = null,
+  // Ownership lookup DELETE performs before deleting (select("submitted_by").eq("id",...).maybeSingle())
+  lookupData = { submitted_by: mockUser.id } as { submitted_by: string } | null,
+  lookupError = null,
   deleteError = null,
   authed = true,
 }: {
@@ -28,6 +31,8 @@ function makeSupabaseMock({
   insertError?: { message: string } | null;
   selectData?: typeof mockArticle[];
   selectError?: { message: string } | null;
+  lookupData?: { submitted_by: string } | null;
+  lookupError?: { message: string } | null;
   deleteError?: { message: string } | null;
   authed?: boolean;
 } = {}) {
@@ -39,7 +44,9 @@ function makeSupabaseMock({
   const contains = vi.fn(() => ({ order }));
   // .in() is used for the nods sub-query — return empty nods list
   const inFn = vi.fn().mockResolvedValue({ data: [], error: null });
-  const select = vi.fn(() => ({ order, contains, in: inFn }));
+  const maybeSingle = vi.fn().mockResolvedValue({ data: lookupData, error: lookupError });
+  const selectEq = vi.fn(() => ({ maybeSingle }));
+  const select = vi.fn(() => ({ order, contains, in: inFn, eq: selectEq }));
 
   const deleteEq2 = vi.fn().mockResolvedValue({ error: deleteError });
   const deleteEq1 = vi.fn(() => ({ eq: deleteEq2 }));
@@ -52,7 +59,7 @@ function makeSupabaseMock({
       }),
     },
     from: vi.fn(() => ({ insert, select, delete: del })),
-    _mocks: { insert, select, single, order, del },
+    _mocks: { insert, select, single, order, del, maybeSingle },
   };
 }
 
@@ -204,5 +211,24 @@ describe("DELETE /api/articles", () => {
     vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
     const res = await DELETE(makeRequest("DELETE"));
     expect(res.status).toBe(400);
+  });
+
+  it("returns 404 when the article doesn't exist", async () => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock({ lookupData: null }) as never);
+    const res = await DELETE(makeRequest("DELETE", undefined, { id: "does-not-exist" }));
+    const body = await res.json();
+    expect(res.status).toBe(404);
+    expect(body.error).toBeTruthy();
+  });
+
+  it("returns 403 and does not delete when the article belongs to someone else", async () => {
+    const supabase = makeSupabaseMock({ lookupData: { submitted_by: "someone-else" } });
+    vi.mocked(createClient).mockResolvedValue(supabase as never);
+    const res = await DELETE(makeRequest("DELETE", undefined, { id: mockArticle.id }));
+    const body = await res.json();
+    expect(res.status).toBe(403);
+    expect(body.error).toBeTruthy();
+    // The delete call itself must never fire for a non-owner
+    expect(supabase._mocks.del).not.toHaveBeenCalled();
   });
 });

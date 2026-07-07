@@ -50,11 +50,11 @@ Findings from the full acquisition-style code review (2026-07-07, full details i
 
 ### Medium priority
 
-- [ ] **Rename middleware.ts → proxy.ts** — Next 16 deprecated the middleware convention (warns on every dev boot). While in there, comment every exclusion in the matcher regex; it has grown organically.
-- [ ] **Rewrite README.md** — still stock create-next-app boilerplate. Needs: what Inkwell is, architecture sketch, required env vars (also add `.env.example`), Supabase setup order for the four SQL files, local dev / test / deploy instructions. CLAUDE.md/DECISIONS.md/BACKLOG.md cover agents; README is the human entry point.
-- [ ] **Add error.tsx and not-found.tsx** — no App Router error or 404 boundaries exist; RSC failures show Next's default screen. Style both to match the amber theme.
-- [ ] **Return 404/403 on non-owner DELETE** — `/api/articles` DELETE returns `{ success: true }` even when the ownership `.eq()` matched zero rows; the API lies and clients desync.
-- [ ] **Validate env vars at startup** — `process.env.X!` non-null assertions crash cryptically when a var is missing. Add a boot-time check with clear messages, plus `.env.example`.
+- [x] **Rename middleware.ts → proxy.ts** — done (2026-07-07). Exported function renamed `middleware` → `proxy` per the new convention; matcher regex now has an inline comment explaining every exclusion. Dev boot no longer warns.
+- [x] **Rewrite README.md** — done (2026-07-07). Covers what Inkwell is, architecture/request-flow sketch, required env vars, Supabase SQL setup order, local dev/test/deploy, and project structure. Added `.env.example` (had to add a `!.env.example` exception to `.gitignore`'s `.env*` rule so it's actually committed).
+- [x] **Add error.tsx and not-found.tsx** — done (2026-07-07). Both match the login page's amber card style (QuillIcon, serif heading, amber-700 CTA). `error.tsx` uses the Next 16.2+ `unstable_retry` prop, not the older `reset`.
+- [x] **Return 404/403 on non-owner DELETE** — done (2026-07-07). `/api/articles` DELETE now looks up ownership before deleting: 404 if the article doesn't exist, 403 if it exists but isn't the caller's, 200 only on an actual delete.
+- [ ] **Validate env vars at startup** — `process.env.X!` non-null assertions crash cryptically when a var is missing. Add a boot-time check with a clear message. (`.env.example` already exists as of the README rewrite above.)
 - [ ] **Adopt DB migrations** — the four `supabase/*.sql` files are run-by-hand snapshots with implicit ordering; production drift is unverifiable. Move to Supabase CLI migrations or a single canonical dumped schema.
 
 ### Polish (single combined pass items)
