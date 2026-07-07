@@ -35,7 +35,10 @@ export async function fetchEnrichedArticles(
   if (tag) query = query.contains("tags", [tag]);
 
   const { data: articles, error } = await query;
-  if (error) return { articles: null, error: error.message };
+  if (error) {
+    console.error(`[fetchEnrichedArticles] ${error.message}`);
+    return { articles: null, error: "Could not load articles. Please try again." };
+  }
 
   const articleIds = (articles ?? []).map((a) => a.id);
   const submitterIds = [...new Set((articles ?? []).map((a) => a.submitted_by))];

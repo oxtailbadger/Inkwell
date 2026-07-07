@@ -11,6 +11,8 @@ News article sharing app for a small friend group (~10 users).
 ## Key files
 - `app/feed/FeedClient.tsx` — main feed page (sidebar, articles grid, author feed); first page is server-rendered via page.tsx, tag filter lives in ?tag= URL param
 - `lib/articles.ts` — shared article fetch + enrichment (nods, submitter names), used by both the API route and the server page
+- `lib/validate.ts` — server-side input validation (http/https-only URLs, length caps); wire new writable fields through this
+- `lib/api-errors.ts` — `dbErrorResponse` maps DB errors to safe client messages; use for any route touching the database
 - `app/api/articles/route.ts` — GET/POST/DELETE articles
 - `app/api/nods/route.ts` — toggle nod (upvote) on an article
 - `app/api/fetch-og/route.ts` — Microlink metadata fetch with manual fallback

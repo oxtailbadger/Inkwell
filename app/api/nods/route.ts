@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { dbErrorResponse } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -24,14 +25,14 @@ export async function POST(request: NextRequest) {
       .delete()
       .eq("article_id", article_id)
       .eq("user_id", user.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return dbErrorResponse("nods:DELETE", error, "Could not update your Nod. Please try again.");
     return NextResponse.json({ nodded: false });
   } else {
     // Nod
     const { error } = await supabase
       .from("nods")
       .insert({ article_id, user_id: user.id });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return dbErrorResponse("nods:POST", error, "Could not update your Nod. Please try again.");
     return NextResponse.json({ nodded: true });
   }
 }

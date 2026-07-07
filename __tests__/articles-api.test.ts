@@ -123,14 +123,54 @@ describe("POST /api/articles", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 500 and surfaces the Supabase error message on DB failure", async () => {
+  it("returns a generic 500 message on DB failure, not the raw Postgres error", async () => {
     vi.mocked(createClient).mockResolvedValue(
       makeSupabaseMock({ insertData: null, insertError: { message: "relation \"articles\" does not exist" } }) as never
     );
     const res = await POST(makeRequest("POST", { url: "https://example.com" }));
     const body = await res.json();
     expect(res.status).toBe(500);
-    expect(body.error).toBe("relation \"articles\" does not exist");
+    expect(body.error).not.toContain("relation");
+    expect(body.error).not.toContain("articles\" does not exist");
+  });
+
+  it("rejects a javascript: URL", async () => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
+    const res = await POST(makeRequest("POST", { url: "javascript:alert(1)" }));
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects an archive_url that isn't http(s)", async () => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
+    const res = await POST(
+      makeRequest("POST", { url: "https://example.com", archive_url: "data:text/html,evil" })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a title over the length limit", async () => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
+    const res = await POST(
+      makeRequest("POST", { url: "https://example.com", title: "x".repeat(501) })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects more than 12 tags", async () => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
+    const res = await POST(
+      makeRequest("POST", { url: "https://example.com", tags: Array.from({ length: 13 }, (_, i) => `tag${i}`) })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("lowercases tags server-side", async () => {
+    const supabase = makeSupabaseMock();
+    vi.mocked(createClient).mockResolvedValue(supabase as never);
+    await POST(makeRequest("POST", { url: "https://example.com", tags: ["POLITICS", "Tech"] }));
+    expect(supabase._mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ tags: ["politics", "tech"] })
+    );
   });
 });
 

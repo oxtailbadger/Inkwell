@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Parser from "rss-parser";
 import { createClient } from "@/lib/supabase/server";
+import { dbErrorResponse } from "@/lib/api-errors";
 
 type RSSItem = {
   title?: string;
@@ -41,7 +42,7 @@ export async function GET() {
     .select("*")
     .order("name");
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbErrorResponse("author-articles:GET", error, "Could not load authors. Please try again.");
 
   const results = await Promise.all(
     (authors ?? []).map(async (author) => {
