@@ -4,6 +4,16 @@ Non-obvious choices and the reasons behind them. Read this before refactoring an
 
 ---
 
+## Design tokens live in app/globals.css's @theme block, not Tailwind config
+
+Tailwind v4 has no `tailwind.config.js` in this project — theme customization happens in CSS via `@theme` in `app/globals.css`. Font-size tokens use Tailwind's paired-variable convention: `--text-{name}` + `--text-{name}--line-height` generates a single `text-{name}` utility setting both properties at once (e.g. `--text-title-sm: 18px` + `--text-title-sm--line-height: 1.3` → `text-title-sm` sets `font-size: 18px; line-height: 23.4px`). Same pattern for `--radius-{name}` → `rounded-{name}` and `--tracking-{name}` → `tracking-{name}`. When a new design-handoff pixel value doesn't fit an existing token, add a new named `--text-*`/`--radius-*`/`--tracking-*` entry here rather than reaching for `text-[Npx]` bracket syntax — that's what these tokens replaced (2026-07-08 design-system pass).
+
+For spacing (gap/padding/margin/width/height), don't add new tokens at all: Tailwind v4's entire spacing scale is `calc(var(--spacing) * N)` off a single `--spacing: 0.25rem` base, so **any** fractional multiple works as a plain utility class — `gap-3.25` is exactly 13px, `px-4.5` is exactly 18px, `w-6.5` is exactly 26px. Convert `px-value / 4` to get the class suffix. This was verified pixel-exact via computed-style inspection against the previous `gap-[13px]`-style arbitrary values before adopting it.
+
+`font-display` was already a valid theme token (`--font-display` in the `@theme inline` block, wired to the Cormorant Garamond variable in `app/layout.tsx`) but nothing used the generated `font-display` utility class — every call site used an inline `style={{ fontFamily: "var(--font-display)" }}` instead, for no reason found in history. All of those are now `className="font-display"`.
+
+---
+
 ## proxy.ts, not middleware.ts
 
 Next 16 renamed the middleware.ts file convention to proxy.ts (the exported function must be named `proxy` or be the default export). The Supabase session-refresh helper it calls kept its old name (`lib/supabase/middleware.ts`, exporting `updateSession`) since that's an ordinary module, not a framework special file — no reason to churn it.

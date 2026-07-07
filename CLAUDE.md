@@ -13,6 +13,7 @@ News article sharing app for a small friend group (~10 users).
 - `lib/articles.ts` — shared article fetch + enrichment (nods, submitter names), used by both the API route and the server page
 - `lib/validate.ts` — server-side input validation (http/https-only URLs, length caps); wire new writable fields through this
 - `lib/api-errors.ts` — `dbErrorResponse` maps DB errors to safe client messages; use for any route touching the database
+- `lib/url.ts` — `getHostname()`, the single shared URL-hostname parser (ArticleCard, AuthorFeed)
 - `app/api/articles/route.ts` — GET/POST/DELETE articles
 - `app/api/nods/route.ts` — toggle nod (upvote) on an article
 - `app/api/fetch-og/route.ts` — Microlink metadata fetch with manual fallback
@@ -34,5 +35,7 @@ See also: `DECISIONS.md` (non-obvious choices and gotchas), `BACKLOG.md` (priori
 
 ## Conventions
 - Tags stored lowercase, displayed with `capitalize` CSS
+- Design tokens (font sizes, radii, tracking) live in `app/globals.css`'s `@theme` block, not a Tailwind config file — see DECISIONS.md before adding new `text-[Npx]`-style bracket values
+- Use `font-display` (a real Tailwind utility, not an inline style) for the Cormorant Garamond headings/titles used throughout article/author/login UI
 - Run tests: `npm test`
 - Type check: `./node_modules/.bin/tsc --noEmit`

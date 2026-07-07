@@ -48,4 +48,22 @@ describe("share target landing page", () => {
     expect(await shareResult({ text: "no link here" })).toBe("/feed");
     expect(await shareResult({})).toBe("/feed");
   });
+
+  it("strips a trailing period from prose", async () => {
+    expect(await shareResult({ text: "Check this out https://example.com/a." })).toBe(
+      "/feed?share=https%3A%2F%2Fexample.com%2Fa"
+    );
+  });
+
+  it("strips a trailing closing paren + period (parenthetical mention)", async () => {
+    expect(await shareResult({ text: "(see https://example.com/a)." })).toBe(
+      "/feed?share=https%3A%2F%2Fexample.com%2Fa"
+    );
+  });
+
+  it("does not strip punctuation that's part of the URL path/query", async () => {
+    expect(await shareResult({ url: "https://example.com/a?id=1&ok=true" })).toBe(
+      "/feed?share=https%3A%2F%2Fexample.com%2Fa%3Fid%3D1%26ok%3Dtrue"
+    );
+  });
 });

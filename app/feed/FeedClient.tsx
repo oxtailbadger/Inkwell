@@ -75,13 +75,23 @@ export default function FeedClient({
     window.history.replaceState(null, "", tag ? `/feed?tag=${encodeURIComponent(tag)}` : "/feed");
   }
 
-  // Track which section is in view based on scroll position
+  // Track which section is in view based on scroll position. Throttled via
+  // rAF so the DOM read (getBoundingClientRect) and state update happen at
+  // most once per frame instead of once per scroll event.
   useEffect(() => {
-    function onScroll() {
+    let ticking = false;
+    function updateActiveSection() {
       const authors = document.getElementById("authors");
-      if (!authors) return;
-      const midpoint = window.innerHeight / 2;
-      setActiveSection(authors.getBoundingClientRect().top <= midpoint ? "authors" : "articles");
+      if (authors) {
+        const midpoint = window.innerHeight / 2;
+        setActiveSection(authors.getBoundingClientRect().top <= midpoint ? "authors" : "articles");
+      }
+      ticking = false;
+    }
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(updateActiveSection);
     }
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -111,8 +121,8 @@ export default function FeedClient({
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <QuillIcon className="w-7 h-7" />
-            <h1 className="text-2xl font-semibold text-slate-900 tracking-tight" style={{ fontFamily: "var(--font-display)" }}>Inkwell</h1>
-            <span className="text-sm text-slate-400 italic hidden sm:block" style={{ fontFamily: "var(--font-display)" }}>A place to share ideas</span>
+            <h1 className="text-2xl font-semibold text-slate-900 tracking-tight font-display">Inkwell</h1>
+            <span className="text-sm text-slate-400 italic hidden sm:block font-display">A place to share ideas</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500 hidden sm:block">{userEmail}</span>
@@ -135,6 +145,7 @@ export default function FeedClient({
                 <a
                   key={href}
                   href={href}
+                  aria-current={isActive ? "page" : undefined}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
                       ? "bg-amber-700 text-white"
@@ -179,7 +190,7 @@ export default function FeedClient({
               </div>
             )}
 
-            <h2 className="text-base font-medium text-gray-400 tracking-widest uppercase" style={{ fontFamily: "var(--font-display)", letterSpacing: "0.18em" }}>Articles from your friends</h2>
+            <h2 className="text-base font-medium text-gray-400 uppercase font-display tracking-section-label">Articles from your friends</h2>
 
             {feedError && (
               <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
@@ -242,6 +253,7 @@ export default function FeedClient({
             <a
               key={href}
               href={href}
+              aria-current={isActive ? "page" : undefined}
               className={`flex-1 py-3 text-center text-sm font-medium transition-colors ${
                 isActive ? "text-amber-700 border-t-2 border-amber-700 -mt-px" : "text-gray-500"
               }`}

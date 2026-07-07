@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import type { Article } from "@/lib/articles";
+import { getHostname } from "@/lib/url";
 
 export function ArticleCard({
   article,
@@ -19,9 +20,7 @@ export function ArticleCard({
   const [iconFailed, setIconFailed] = useState(false);
 
   const isOwner = article.submitted_by === currentUserId;
-  const domain = (() => {
-    try { return new URL(article.url).hostname.replace("www.", ""); } catch { return ""; }
-  })();
+  const domain = getHostname(article.url) ?? "";
 
   // Publication badge: stored Microlink logo, else Google's favicon service
   // (covers pre-existing rows and manual-mode submissions), else the letter
@@ -68,12 +67,11 @@ export function ArticleCard({
           </div>
         </a>
       )}
-      <div className="px-[18px] pt-4 pb-[18px] flex flex-col flex-1">
-        <div className="flex items-center justify-between mb-[10px]">
-          <div className="flex items-center gap-[9px] min-w-0">
+      <div className="px-4.5 pt-4 pb-4.5 flex flex-col flex-1">
+        <div className="flex items-center justify-between mb-2.5">
+          <div className="flex items-center gap-2.25 min-w-0">
             <div
-              className="flex-none w-[26px] h-[26px] rounded-[7px] bg-amber-50 border border-amber-200 flex items-center justify-center overflow-hidden text-xs font-semibold text-amber-700"
-              style={{ fontFamily: "var(--font-display)" }}
+              className="flex-none w-6.5 h-6.5 rounded-badge-sm bg-amber-50 border border-amber-200 flex items-center justify-center overflow-hidden text-xs font-display font-semibold text-amber-700"
               aria-hidden="true"
             >
               {iconSrc && !iconFailed ? (
@@ -90,7 +88,7 @@ export function ArticleCard({
                 (article.site_name ?? domain).charAt(0).toUpperCase()
               )}
             </div>
-            <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider truncate">
+            <span className="text-2xs text-gray-400 font-semibold uppercase tracking-wider truncate">
               {article.site_name ?? domain}
             </span>
           </div>
@@ -107,18 +105,17 @@ export function ArticleCard({
           href={article.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="block text-[18px] font-semibold leading-[1.3] text-gray-900 hover:text-blue-600 mb-1.5"
-          style={{ fontFamily: "var(--font-display)" }}
+          className="block text-title-sm font-display font-semibold text-gray-900 hover:text-blue-600 mb-1.5"
         >
           {article.title ?? article.url}
         </a>
         {article.description && (
-          <p className="text-[13px] leading-[1.5] text-gray-500 line-clamp-2 mb-3">{article.description}</p>
+          <p className="text-body-sm text-gray-500 line-clamp-2 mb-3">{article.description}</p>
         )}
         {article.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-3.5">
             {article.tags.map((tag) => (
-              <span key={tag} className="text-[11px] bg-blue-50 text-blue-600 rounded-full px-2.5 py-0.5 font-medium capitalize">
+              <span key={tag} className="text-2xs bg-blue-50 text-blue-600 rounded-full px-2.5 py-0.5 font-medium capitalize">
                 {tag}
               </span>
             ))}
@@ -126,12 +123,13 @@ export function ArticleCard({
         )}
 
         {/* Footer */}
-        <div className="mt-auto pt-[13px] border-t border-gray-100 flex items-center justify-between flex-wrap gap-y-2">
+        <div className="mt-auto pt-3.25 border-t border-gray-100 flex items-center justify-between flex-wrap gap-y-2">
           <div className="flex items-center gap-2">
             <button
               onClick={toggleNod}
               disabled={nodding}
-              className="flex items-center gap-[5px] text-[11.5px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-full px-3 py-1.5 transition-colors"
+              aria-pressed={hasNodded}
+              className="flex items-center gap-1.25 text-pill font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-full px-3 py-1.5 transition-colors"
             >
               <span>{hasNodded ? "✦" : "✧"}</span>
               <span>{nodCount > 0 ? `${nodCount} ${nodCount === 1 ? "Nod" : "Nods"}` : "Nod"}</span>
@@ -141,13 +139,13 @@ export function ArticleCard({
                 href={article.archive_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-[5px] text-[11.5px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-full px-3 py-1.5 transition-colors"
+                className="flex items-center gap-1.25 text-pill font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-full px-3 py-1.5 transition-colors"
               >
                 Read free ↗
               </a>
             )}
           </div>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-2xs text-gray-500">
             {isOwner ? "You" : article.submitter_name ?? "Friend"} · {new Date(article.created_at).toLocaleDateString()}
           </p>
         </div>

@@ -62,7 +62,7 @@ export default function LoginPage() {
           <div className="bg-amber-50 rounded-2xl p-4 mb-4 shadow-inner border border-amber-100">
             <QuillIcon className="w-20 h-20" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Inkwell</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 font-display">Inkwell</h1>
           <p className="text-sm text-slate-500 mt-1 text-center">
             Articles worth reading, shared by friends.
           </p>
@@ -96,7 +96,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={verifying || !code.trim()}
-                className="w-full bg-slate-900 text-white rounded-lg py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50 transition-colors"
+                className="w-full bg-amber-700 text-white rounded-lg py-2 text-sm font-medium hover:bg-amber-800 disabled:opacity-50 transition-colors"
               >
                 {verifying ? "Verifying…" : "Sign in with code"}
               </button>
@@ -122,7 +122,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-slate-900 text-white rounded-lg py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50 transition-colors"
+              className="w-full bg-amber-700 text-white rounded-lg py-2 text-sm font-medium hover:bg-amber-800 disabled:opacity-50 transition-colors"
             >
               {loading ? "Sending…" : "Send magic link"}
             </button>

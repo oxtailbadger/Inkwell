@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getHostname } from "@/lib/url";
 
 type AuthorArticle = {
   url: string;
@@ -22,12 +23,8 @@ type Author = {
 // letter monogram if this errors or the URL is unparseable.
 function iconSrc(author: Pick<Author, "website_url" | "site_icon_url">): string | null {
   if (author.site_icon_url) return author.site_icon_url;
-  try {
-    const host = new URL(author.website_url).hostname;
-    return `https://www.google.com/s2/favicons?domain=${host}&sz=64`;
-  } catch {
-    return null;
-  }
+  const host = getHostname(author.website_url);
+  return host ? `https://www.google.com/s2/favicons?domain=${host}&sz=64` : null;
 }
 
 // Own component (not inline in the map) so each card tracks its own
@@ -38,8 +35,7 @@ function AuthorAvatar({ author }: { author: Author }) {
 
   return (
     <div
-      className="flex-none w-11 h-11 rounded-[10px] bg-amber-50 border border-amber-200 flex items-center justify-center overflow-hidden text-[20px] font-semibold text-amber-700"
-      style={{ fontFamily: "var(--font-display)" }}
+      className="flex-none w-11 h-11 rounded-badge-lg bg-amber-50 border border-amber-200 flex items-center justify-center overflow-hidden text-badge font-display font-semibold text-amber-700"
       aria-hidden="true"
     >
       {src && !failed ? (
@@ -63,12 +59,9 @@ function AuthorAvatar({ author }: { author: Author }) {
 // is the only source we have — no separate publication-name field — so we
 // derive a short label from the domain instead of fabricating one.
 function siteLabel(websiteUrl: string): string {
-  try {
-    const host = new URL(websiteUrl).hostname.replace(/^www\./, "");
-    return host.endsWith(".substack.com") ? "Substack" : host;
-  } catch {
-    return "their site";
-  }
+  const host = getHostname(websiteUrl);
+  if (!host) return "their site";
+  return host.endsWith(".substack.com") ? "Substack" : host;
 }
 
 export function AuthorFeed() {
@@ -100,7 +93,7 @@ export function AuthorFeed() {
   if (failed) {
     return (
       <div className="space-y-4">
-        <h2 className="text-base font-medium text-gray-400 tracking-widest uppercase" style={{ fontFamily: "var(--font-display)", letterSpacing: "0.18em" }}>From the Authors</h2>
+        <h2 className="text-base font-medium text-gray-400 uppercase font-display tracking-section-label">From the Authors</h2>
         <p className="text-sm text-gray-400">Couldn&apos;t load author feeds right now — try refreshing.</p>
       </div>
     );
@@ -110,7 +103,7 @@ export function AuthorFeed() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-base font-medium text-gray-400 tracking-widest uppercase" style={{ fontFamily: "var(--font-display)", letterSpacing: "0.18em" }}>From the Authors</h2>
+      <h2 className="text-base font-medium text-gray-400 uppercase font-display tracking-section-label">From the Authors</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {authors.map((author) => (
           <div key={author.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -118,16 +111,13 @@ export function AuthorFeed() {
                 sidebar hidden) there isn't room for avatar + name + button
                 on one line — the button drops to its own row rather than
                 the name getting crushed and truncated */}
-            <div className="flex flex-wrap items-center gap-x-[13px] gap-y-2 px-[18px] py-4 border-b border-gray-100">
+            <div className="flex flex-wrap items-center gap-x-3.25 gap-y-2 px-4.5 py-4 border-b border-gray-100">
               <AuthorAvatar author={author} />
               <div className="flex-1 min-w-[120px]">
-                <p
-                  className="text-[19px] font-semibold leading-[1.15] text-gray-900 truncate"
-                  style={{ fontFamily: "var(--font-display)" }}
-                >
+                <p className="text-title-md font-display font-semibold text-gray-900 truncate">
                   {author.name}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-gray-500 mt-0.5">
                   {author.articles.length} {author.articles.length === 1 ? "article" : "articles"}
                 </p>
               </div>
@@ -135,23 +125,22 @@ export function AuthorFeed() {
                 href={author.website_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-none text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-full px-[13px] py-1.5 whitespace-nowrap transition-colors"
+                className="flex-none text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-full px-3.25 py-1.5 whitespace-nowrap transition-colors"
               >
                 Read on {siteLabel(author.website_url)} ↗
               </a>
             </div>
             <ul className="divide-y divide-gray-100">
               {author.articles.length === 0 ? (
-                <li className="px-[18px] py-3.5 text-sm text-gray-400">No free articles found.</li>
+                <li className="px-4.5 py-3.5 text-sm text-gray-400">No free articles found.</li>
               ) : (
                 author.articles.map((article) => (
-                  <li key={article.url} className="px-[18px] py-3.5">
+                  <li key={article.url} className="px-4.5 py-3.5">
                     <a
                       href={article.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block text-base font-medium text-gray-900 hover:text-blue-600 leading-[1.35] mb-[3px]"
-                      style={{ fontFamily: "var(--font-display)" }}
+                      className="block text-title-xs font-display font-medium text-gray-900 hover:text-blue-600 mb-0.75"
                     >
                       {article.title}
                     </a>
@@ -159,7 +148,7 @@ export function AuthorFeed() {
                       <p className="text-xs text-gray-500 line-clamp-2">{article.description}</p>
                     )}
                     {article.published_at && (
-                      <p className="text-[11px] text-gray-400 mt-1.5">
+                      <p className="text-2xs text-gray-500 mt-1.5">
                         {new Date(article.published_at).toLocaleDateString("en-US", {
                           month: "short", day: "numeric", year: "numeric",
                         })}

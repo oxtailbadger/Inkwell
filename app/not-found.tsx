@@ -9,10 +9,7 @@ export default function NotFound() {
           <div className="bg-amber-50 rounded-2xl p-4 mb-4 shadow-inner border border-amber-100">
             <QuillIcon className="w-16 h-16" />
           </div>
-          <h1
-            className="text-2xl font-semibold text-slate-900"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
+          <h1 className="text-2xl font-semibold text-slate-900 font-display">
             Blank page
           </h1>
           <p className="text-sm text-slate-500 mt-2">
