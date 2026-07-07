@@ -31,6 +31,42 @@ Items are roughly ordered by priority within each section. Move things between s
 
 ---
 
+## Path to public launch
+
+Findings from the full acquisition-style code review (2026-07-07, full details in that session's review). These are the changes needed to take Inkwell from a trusted-friends beta to a public-scale launch. Ordered by priority within each tier.
+
+### Launch blockers — do before any public exposure
+
+- [ ] **Enforce the access model in code, not dashboard config** — `signInWithOtp` in `app/login/page.tsx` doesn't pass `shouldCreateUser: false`, and every RLS read policy is `using (true)` for any authenticated user. Privacy currently depends entirely on the unversioned "allow new signups" Supabase dashboard toggle. Fix: allowlist table checked by RLS, or the invite flow (see Deferred), or at minimum `shouldCreateUser: false` + document the dashboard dependency.
+- [ ] **Pagination + DB-side nod counts** — `lib/articles.ts` fetches every article ever posted, then all nods, and aggregates in JS (O(articles × nods) per request). Add limit/cursor pagination to GET /api/articles and move nod counting into Postgres (view or `count(*) group by article_id` RPC). FeedClient needs a "load more" affordance.
+- [ ] **Custom SMTP before launch** — auth emails ride Supabase's built-in dev-only sender (a few emails/hour). Set up Resend or Postmark with SPF/DKIM on a real domain; also unblocks the weekly digest feature.
+
+### High priority — survive real users
+
+- [ ] **Validate stored URLs server-side** — POST /api/articles accepts `url`, `archive_url`, `image_url` as arbitrary strings, later rendered as hrefs/image src (stored-XSS vector via `javascript:` URLs). Parse with `new URL`, require http/https, add length caps on title/description and count/length caps on tags.
+- [ ] **Client-friendly error messages** — every API route returns raw Supabase/Postgres `error.message` to the client (leaks schema details). Map to generic messages client-side of the boundary; log the real error server-side.
+- [ ] **Rate limiting + fetch-og caching** — no route has rate limits. Priority: `/api/fetch-og` (burns Microlink quota; also cache successful lookups by URL — every re-preview of the same URL re-hits Microlink) and `/api/archive-check` (archive.ph already 429s; don't get the IP range blocked). Vercel KV / Upstash per-user limits.
+- [ ] **CI + broader test coverage** — no `.github/workflows`; tests never run before deploy. Add a GitHub Actions workflow (typecheck + vitest on PR). Then extend coverage to the untested surfaces: nods toggle, fetch-og (the Microlink 200-on-fail semantics), author-articles paywall heuristics (most fragile logic in the app, zero tests), profiles enrichment. Consider a small Playwright smoke suite against a seeded preview deploy — the two worst historical bugs were integration-level and invisible to unit mocks.
+
+### Medium priority
+
+- [ ] **Rename middleware.ts → proxy.ts** — Next 16 deprecated the middleware convention (warns on every dev boot). While in there, comment every exclusion in the matcher regex; it has grown organically.
+- [ ] **Rewrite README.md** — still stock create-next-app boilerplate. Needs: what Inkwell is, architecture sketch, required env vars (also add `.env.example`), Supabase setup order for the four SQL files, local dev / test / deploy instructions. CLAUDE.md/DECISIONS.md/BACKLOG.md cover agents; README is the human entry point.
+- [ ] **Add error.tsx and not-found.tsx** — no App Router error or 404 boundaries exist; RSC failures show Next's default screen. Style both to match the amber theme.
+- [ ] **Return 404/403 on non-owner DELETE** — `/api/articles` DELETE returns `{ success: true }` even when the ownership `.eq()` matched zero rows; the API lies and clients desync.
+- [ ] **Validate env vars at startup** — `process.env.X!` non-null assertions crash cryptically when a var is missing. Add a boot-time check with clear messages, plus `.env.example`.
+- [ ] **Adopt DB migrations** — the four `supabase/*.sql` files are run-by-hand snapshots with implicit ordering; production drift is unverifiable. Move to Supabase CLI migrations or a single canonical dumped schema.
+
+### Polish (single combined pass items)
+
+- [ ] **Design-system + accessibility pass (combined feature request)** — one pass covering: replace the ~15 repeated `style={{ fontFamily: "var(--font-display)" }}` inline styles with a Tailwind `font-display` utility via `@theme`; consolidate design-handoff arbitrary pixel values (`text-[11.5px]`, `gap-[13px]`, `px-[18px]`) into theme tokens; add `aria-pressed` to the Nod toggle and `aria-current` to nav items; fix the ~2.8:1 contrast failure on 11px `text-gray-400` meta text.
+- [ ] **Uniform scroll listener** — throttle the FeedClient scroll handler (rAF), and while touching shared client utils, dedupe the domain-parsing logic that now exists in slightly different forms in both `AuthorFeed` (`siteLabel`) and `ArticleCard` (`domain`).
+- [ ] **Harden the share-page URL regex** — `https?:\/\/\S+` captures trailing punctuation from prose shares ("(see https://x.com/a)." keeps the paren/period).
+- [ ] **Open-redirect check on auth callback `next` param** — currently same-origin path interpolation, but a `next=//evil.com` guard is cheap insurance.
+- [ ] **Structured logging** — codify the `[route-name]` log-prefix convention that fetch-og/archive-check/author-articles already follow; consider a log drain when traffic warrants.
+
+---
+
 ## Known limitations / bugs
 
 - [ ] **NYT / WSJ previews always go manual** — Microlink's EPROXYNEEDED is a hard block. No fix short of a paid Microlink plan or a custom proxy. The manual fallback form is the current workaround.
