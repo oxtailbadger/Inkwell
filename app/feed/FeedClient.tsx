@@ -7,6 +7,7 @@ import { ArticleCard } from "@/components/ArticleCard";
 import { SubmitArticle } from "@/components/SubmitArticle";
 import { QuillIcon } from "@/components/QuillIcon";
 import { AuthorFeed } from "@/components/AuthorFeed";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import type { Article } from "@/lib/articles";
 
 const NAV_ITEMS = [
@@ -116,17 +117,22 @@ export default function FeedClient({
   const allTags = [...new Set(articles.flatMap((a) => a.tags))].sort();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+    <div className="min-h-screen bg-paper">
+      <header className="bg-paper border-b border-card-border sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <QuillIcon className="w-7 h-7" />
-            <h1 className="text-2xl font-semibold text-slate-900 tracking-tight font-display">Inkwell</h1>
-            <span className="text-sm text-slate-400 italic hidden sm:block font-display">A place to share ideas</span>
+            <QuillIcon className="w-6 h-6" />
+            <h1 className="text-xl font-bold text-ink tracking-[-0.01em]">Inkwell</h1>
+            <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block" aria-hidden="true" />
+            <span className="text-xs font-display text-muted-2 hidden sm:block ml-1">A place to share ideas</span>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500 hidden sm:block">{userEmail}</span>
-            <button onClick={handleSignOut} className="text-sm text-gray-500 hover:text-gray-700">
+          <div className="flex items-center gap-2.5">
+            <span className="text-sm text-muted hidden sm:block">{userEmail}</span>
+            <ThemeToggle />
+            <button
+              onClick={handleSignOut}
+              className="text-[13px] font-semibold text-ink bg-transparent border border-card-border rounded-control px-3.5 py-2 hover:bg-ink hover:text-paper transition-colors"
+            >
               Sign out
             </button>
           </div>
@@ -136,7 +142,7 @@ export default function FeedClient({
       <div className="max-w-6xl mx-auto px-4 py-6 flex gap-8 pb-20 lg:pb-6">
 
         {/* Sidebar */}
-        <aside className="hidden lg:block w-44 shrink-0 lg:border-r lg:border-amber-200">
+        <aside className="hidden lg:block w-44 shrink-0 lg:border-r lg:border-card-border">
           <nav className="sticky top-20 space-y-1">
             {NAV_ITEMS.map(({ label, href }) => {
               const sectionId = href.replace("#", "");
@@ -146,10 +152,10 @@ export default function FeedClient({
                   key={href}
                   href={href}
                   aria-current={isActive ? "page" : undefined}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded-control text-sm font-medium transition-colors ${
                     isActive
-                      ? "bg-amber-700 text-white"
-                      : "text-gray-600 hover:bg-amber-50 hover:text-gray-900"
+                      ? "bg-accent-tint text-accent"
+                      : "text-muted hover:bg-tag-bg hover:text-ink"
                   }`}
                 >
                   {label}
@@ -170,8 +176,10 @@ export default function FeedClient({
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setActiveTag(null)}
-                  className={`text-sm rounded-full px-3 py-1 font-medium transition-colors ${
-                    activeTag === null ? "bg-amber-700 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-amber-50"
+                  className={`text-[13px] font-medium rounded-control px-3.5 py-1.5 border transition-colors ${
+                    activeTag === null
+                      ? "bg-accent-tint border-accent text-accent"
+                      : "bg-transparent border-card-border text-ink hover:border-ink"
                   }`}
                 >
                   All
@@ -180,8 +188,10 @@ export default function FeedClient({
                   <button
                     key={tag}
                     onClick={() => setActiveTag(tag === activeTag ? null : tag)}
-                    className={`text-sm rounded-full px-3 py-1 font-medium transition-colors capitalize ${
-                      activeTag === tag ? "bg-amber-700 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-amber-50"
+                    className={`text-[13px] font-medium rounded-control px-3.5 py-1.5 border capitalize transition-colors ${
+                      activeTag === tag
+                        ? "bg-accent-tint border-accent text-accent"
+                        : "bg-transparent border-card-border text-ink hover:border-ink"
                     }`}
                   >
                     {tag}
@@ -190,10 +200,10 @@ export default function FeedClient({
               </div>
             )}
 
-            <h2 className="text-base font-medium text-gray-400 uppercase font-display tracking-section-label">Articles from your friends</h2>
+            <h2 className="text-xs font-display font-semibold uppercase tracking-widest text-muted">Articles from your friends</h2>
 
             {feedError && (
-              <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+              <div className="rounded-control bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
                 {feedError}
               </div>
             )}
@@ -201,25 +211,25 @@ export default function FeedClient({
             {loading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="bg-white rounded-xl border border-gray-200 h-64 animate-pulse" />
+                  <div key={i} className="bg-card rounded-card border border-card-border h-64 animate-pulse" />
                 ))}
               </div>
             ) : !feedError && articles.length === 0 ? (
-              <div className="text-center py-20 text-gray-400">
+              <div className="text-center py-20 text-muted">
                 <p className="text-4xl mb-3">📰</p>
                 {activeTag ? (
                   <>
-                    <p className="font-medium">No articles tagged yet</p>
+                    <p className="font-medium text-ink">No articles tagged yet</p>
                     <button
                       onClick={() => setActiveTag(null)}
-                      className="text-sm mt-1 text-blue-600 hover:text-blue-800 underline"
+                      className="text-sm mt-1 text-accent border-b border-accent"
                     >
                       Show all articles
                     </button>
                   </>
                 ) : (
                   <>
-                    <p className="font-medium">No articles yet</p>
+                    <p className="font-medium text-ink">No articles yet</p>
                     <p className="text-sm mt-1">Be the first to share something worth reading.</p>
                   </>
                 )}
@@ -245,7 +255,7 @@ export default function FeedClient({
       </div>
 
       {/* Mobile bottom nav — the sidebar is desktop-only */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-10 bg-white border-t border-amber-200 flex">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-10 bg-card border-t border-card-border flex">
         {NAV_ITEMS.map(({ label, href }) => {
           const sectionId = href.replace("#", "");
           const isActive = activeSection === sectionId;
@@ -255,7 +265,7 @@ export default function FeedClient({
               href={href}
               aria-current={isActive ? "page" : undefined}
               className={`flex-1 py-3 text-center text-sm font-medium transition-colors ${
-                isActive ? "text-amber-700 border-t-2 border-amber-700 -mt-px" : "text-gray-500"
+                isActive ? "text-accent border-t-2 border-accent -mt-px" : "text-muted"
               }`}
             >
               {label}

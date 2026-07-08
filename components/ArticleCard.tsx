@@ -53,10 +53,10 @@ export function ArticleCard({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
-      {article.image_url && (
-        <a href={article.url} target="_blank" rel="noopener noreferrer">
-          <div className="relative w-full h-44 bg-gray-100">
+    <div className="bg-card rounded-card border border-card-border overflow-hidden flex flex-col">
+      <a href={article.url} target="_blank" rel="noopener noreferrer" className="block">
+        {article.image_url ? (
+          <div className="relative w-full h-[170px] bg-placeholder-bg">
             <Image
               src={article.image_url}
               alt={article.title ?? "Article image"}
@@ -65,13 +65,15 @@ export function ArticleCard({
               unoptimized
             />
           </div>
-        </a>
-      )}
-      <div className="px-4.5 pt-4 pb-4.5 flex flex-col flex-1">
-        <div className="flex items-center justify-between mb-2.5">
+        ) : (
+          <div className="stripe-ph w-full h-[170px] bg-placeholder-bg" aria-hidden="true" />
+        )}
+      </a>
+      <div className="px-[22px] pt-[22px] pb-[22px] flex flex-col flex-1">
+        <div className="flex items-center justify-between mb-3.5">
           <div className="flex items-center gap-2.25 min-w-0">
             <div
-              className="flex-none w-6.5 h-6.5 rounded-badge-sm bg-amber-50 border border-amber-200 flex items-center justify-center overflow-hidden text-xs font-display font-semibold text-amber-700"
+              className="flex-none w-5 h-5 rounded-badge-sm bg-ink text-paper flex items-center justify-center overflow-hidden text-[11px] font-semibold"
               aria-hidden="true"
             >
               {iconSrc && !iconFailed ? (
@@ -81,21 +83,21 @@ export function ArticleCard({
                   alt=""
                   width={20}
                   height={20}
-                  className="w-5 h-5 object-contain"
+                  className="w-full h-full object-contain"
                   onError={() => setIconFailed(true)}
                 />
               ) : (
                 (article.site_name ?? domain).charAt(0).toUpperCase()
               )}
             </div>
-            <span className="text-2xs text-gray-400 font-semibold uppercase tracking-wider truncate">
+            <span className="text-xs font-display font-semibold uppercase tracking-[0.08em] text-muted truncate">
               {article.site_name ?? domain}
             </span>
           </div>
           {isOwner && (
             <button
               onClick={() => onDelete(article.id)}
-              className="flex-none text-xs text-red-400 hover:text-red-600"
+              className="flex-none text-xs text-red-500 hover:text-red-600"
             >
               Remove
             </button>
@@ -105,17 +107,20 @@ export function ArticleCard({
           href={article.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="block text-title-sm font-display font-semibold text-gray-900 hover:text-blue-600 mb-1.5"
+          className="block text-headline font-semibold text-ink hover:text-accent mb-2"
         >
           {article.title ?? article.url}
         </a>
         {article.description && (
-          <p className="text-body-sm text-gray-500 line-clamp-2 mb-3">{article.description}</p>
+          <p className="text-body-sm text-muted line-clamp-2 mb-3.5">{article.description}</p>
         )}
         {article.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-3.5">
+          <div className="flex flex-wrap gap-[7px] mb-4">
             {article.tags.map((tag) => (
-              <span key={tag} className="text-2xs bg-blue-50 text-blue-600 rounded-full px-2.5 py-0.5 font-medium capitalize">
+              <span
+                key={tag}
+                className="text-[11px] font-semibold uppercase tracking-wider font-display bg-tag-bg text-tag-fg border border-tag-border rounded-tag px-[9px] py-[3px]"
+              >
                 {tag}
               </span>
             ))}
@@ -123,29 +128,36 @@ export function ArticleCard({
         )}
 
         {/* Footer */}
-        <div className="mt-auto pt-3.25 border-t border-gray-100 flex items-center justify-between flex-wrap gap-y-2">
-          <div className="flex items-center gap-2">
+        <div className="mt-auto pt-3.5 border-t border-card-border flex items-center justify-between flex-wrap gap-y-2">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={toggleNod}
               disabled={nodding}
               aria-pressed={hasNodded}
-              className="flex items-center gap-1.25 text-pill font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-full px-3 py-1.5 transition-colors"
+              className={`flex items-center gap-1.5 text-[12.5px] font-semibold rounded-control px-3 py-1.5 border transition-colors ${
+                hasNodded
+                  ? "bg-accent-tint border-accent text-accent"
+                  : "bg-card border-card-border text-muted"
+              }`}
             >
               <span>{hasNodded ? "✦" : "✧"}</span>
-              <span>{nodCount > 0 ? `${nodCount} ${nodCount === 1 ? "Nod" : "Nods"}` : "Nod"}</span>
+              <span>
+                {hasNodded ? "Nodded" : "Nod"}
+                {nodCount > 0 ? ` · ${nodCount}` : ""}
+              </span>
             </button>
             {article.archive_url && (
               <a
                 href={article.archive_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.25 text-pill font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-full px-3 py-1.5 transition-colors"
+                className="text-[11.5px] font-semibold tracking-[0.02em] text-accent border-b border-accent"
               >
                 Read free ↗
               </a>
             )}
           </div>
-          <p className="text-2xs text-gray-500">
+          <p className="text-xs font-display text-muted-2">
             {isOwner ? "You" : article.submitter_name ?? "Friend"} · {new Date(article.created_at).toLocaleDateString()}
           </p>
         </div>

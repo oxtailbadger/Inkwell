@@ -34,6 +34,11 @@ async function requestMetadata(url: string): Promise<{ data: OGData | null; manu
   return { data: null, manual: Boolean(body.manual) };
 }
 
+// Shared outline-button treatment (header CTA / Preview / theme toggle):
+// transparent bg, hairline border, inverts to filled ink/paper on hover.
+const OUTLINE_BUTTON =
+  "text-[13px] font-semibold text-ink bg-transparent border border-card-border rounded-control hover:bg-ink hover:text-paper transition-colors";
+
 export function SubmitArticle({
   onSubmitted,
   initialUrl,
@@ -171,15 +176,16 @@ export function SubmitArticle({
   return (
     <div>
       {!open ? (
-        <button
-          onClick={() => setOpen(true)}
-          className="bg-amber-700 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-amber-800 transition-colors"
-        >
+        <button onClick={() => setOpen(true)} className={`${OUTLINE_BUTTON} px-[18px] py-2.5`}>
           + Share article
         </button>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-          <div className="flex gap-2">
+        <div className="bg-card border border-card-border rounded-card p-7 space-y-[18px]">
+          <p className="text-xs font-display font-semibold uppercase tracking-widest text-muted">
+            Share an article
+          </p>
+
+          <div className="flex gap-2.5">
             <input
               type="url"
               value={url}
@@ -191,32 +197,34 @@ export function SubmitArticle({
                 if (archiveSuggested) { setArchiveUrl(""); setArchiveSuggested(false); }
               }}
               placeholder="Paste article URL…"
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 bg-card border border-card-border rounded-control px-3.5 py-2.5 text-sm text-ink placeholder:text-muted-2 focus:outline-none focus:border-accent"
             />
             <button
               onClick={fetchPreview}
               disabled={!url || fetching}
-              className="bg-gray-100 text-gray-700 rounded-lg px-3 py-2 text-sm font-medium hover:bg-gray-200 disabled:opacity-50"
+              className={`${OUTLINE_BUTTON} px-5 disabled:opacity-50`}
             >
               {fetching ? "…" : "Preview"}
             </button>
           </div>
 
           {preview && (
-            <div className="bg-gray-50 rounded-lg p-3 text-sm">
-              <p className="font-medium text-gray-900 line-clamp-1">{preview.title ?? url}</p>
+            <div className="bg-paper border border-card-border rounded-[10px] px-4 py-3.5">
+              <p className="text-sm font-semibold text-ink line-clamp-1 mb-1">{preview.title ?? url}</p>
               {preview.description && (
-                <p className="text-gray-500 line-clamp-2 mt-0.5">{preview.description}</p>
+                <p className="text-[13px] text-muted line-clamp-2 mb-1.5">{preview.description}</p>
               )}
               {preview.site_name && (
-                <p className="text-xs text-gray-400 mt-1">{preview.site_name}</p>
+                <p className="text-[11px] font-display font-semibold uppercase tracking-[0.08em] text-muted-2">
+                  {preview.site_name}
+                </p>
               )}
             </div>
           )}
 
           {manualMode && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-3">
-              <p className="text-xs text-amber-700 font-medium">
+            <div className="bg-paper border border-card-border rounded-control p-3.5 space-y-3">
+              <p className="text-xs text-ink font-medium">
                 This site blocks automatic previews. Add a title and description so your friends know what it&apos;s about.
               </p>
               <input
@@ -224,20 +232,22 @@ export function SubmitArticle({
                 value={manualTitle}
                 onChange={(e) => setManualTitle(e.target.value)}
                 placeholder="Article title…"
-                className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                className="w-full border border-card-border rounded-control px-3.5 py-2.5 text-sm text-ink placeholder:text-muted-2 bg-card focus:outline-none focus:border-accent"
               />
               <textarea
                 value={manualDescription}
                 onChange={(e) => setManualDescription(e.target.value)}
                 placeholder="Short description (optional)…"
                 rows={2}
-                className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                className="w-full border border-card-border rounded-control px-3.5 py-2.5 text-sm text-ink placeholder:text-muted-2 bg-card focus:outline-none focus:border-accent resize-none"
               />
             </div>
           )}
 
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-2">Category</p>
+            <p className="text-[11px] font-display font-semibold uppercase tracking-[0.08em] text-muted mb-2.5">
+              Category
+            </p>
             <div className="flex flex-wrap gap-2">
               {PRESET_TAGS.map((tag) => {
                 const active = selectedTags.includes(tag);
@@ -246,10 +256,10 @@ export function SubmitArticle({
                     key={tag}
                     type="button"
                     onClick={() => toggleTag(tag)}
-                    className={`rounded-full px-3 py-1 text-sm font-medium border transition-colors ${
+                    className={`text-[13px] font-medium rounded-control px-3.5 py-1.5 border transition-colors ${
                       active
-                        ? "bg-amber-700 text-white border-amber-700"
-                        : "bg-white text-gray-600 border-gray-300 hover:border-amber-400 hover:text-amber-700"
+                        ? "bg-accent-tint border-accent text-accent"
+                        : "bg-transparent border-card-border text-ink hover:border-ink"
                     }`}
                   >
                     {tag}
@@ -260,7 +270,7 @@ export function SubmitArticle({
           </div>
 
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-2">
+            <p className="text-[13px] text-muted mb-2">
               Do you have an archive.is link?{" "}
               {url ? (
                 <>
@@ -268,7 +278,7 @@ export function SubmitArticle({
                     href={`https://archive.ph/newest/${url}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-amber-600 hover:text-amber-800 underline"
+                    className="text-accent border-b border-accent"
                   >
                     Find snapshot ↗
                   </a>
@@ -277,7 +287,7 @@ export function SubmitArticle({
                     href={`https://archive.ph/?url=${encodeURIComponent(url)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-amber-600 hover:text-amber-800 underline"
+                    className="text-accent border-b border-accent"
                   >
                     Create one ↗
                   </a>
@@ -287,7 +297,7 @@ export function SubmitArticle({
                   href="https://archive.is"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-amber-600 hover:text-amber-800 underline"
+                  className="text-accent border-b border-accent"
                 >
                   Open archive.is ↗
                 </a>
@@ -298,10 +308,10 @@ export function SubmitArticle({
               value={archiveUrl}
               onChange={(e) => { setArchiveUrl(e.target.value); setArchiveSuggested(false); }}
               placeholder="https://archive.is/…"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-card border border-card-border rounded-control px-3.5 py-2.5 text-sm text-ink placeholder:text-muted-2 focus:outline-none focus:border-accent"
             />
             {archiveSuggested && archiveUrl && (
-              <p className="text-xs text-green-700 mt-1.5">
+              <p className="text-xs text-accent mt-1.5">
                 Found an existing snapshot — clear it if you&apos;d rather not include it.
               </p>
             )}
@@ -309,17 +319,17 @@ export function SubmitArticle({
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <div className="flex gap-2 justify-end">
+          <div className="flex justify-end gap-2.5">
             <button
               onClick={reset}
-              className="text-sm text-gray-500 hover:text-gray-700 px-3 py-2"
+              className="text-[13px] font-semibold text-muted hover:text-ink px-3.5 py-2.5"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
               disabled={!url || submitting || (manualMode && !manualTitle.trim())}
-              className="bg-amber-700 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-amber-800 disabled:opacity-50"
+              className="text-[13px] font-semibold text-card bg-accent hover:bg-accent-hover border border-accent hover:border-accent-hover rounded-control px-[22px] py-2.5 disabled:opacity-50 transition-colors"
             >
               {submitting ? "Sharing…" : "Share"}
             </button>

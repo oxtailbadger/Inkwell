@@ -52,5 +52,6 @@ Findings from the full acquisition-style code review (2026-07-07, full details i
 ## Deferred / someday
 
 - [ ] **Trending articles panel** — pull in what's popular outside the friend group (e.g. Hacker News top stories). Considered and deferred — the group didn't want noise from outside.
-- [ ] **Dark mode** — globals.css has the `prefers-color-scheme` variable block stubbed but components use hardcoded `bg-white` and `text-gray-900` throughout. Would need a full pass.
 - [ ] **Invite flow** — currently access is by manually adding emails in Supabase. A simple invite-by-email flow would make onboarding new friends easier.
+- [ ] **Extend the Broadsheet design system to login/error/not-found pages** — the 2026-07-08 redesign covers the authenticated app shell (feed, sidebar, header, article/author/submit cards) but the pre-auth pages (`app/login/page.tsx`, `app/error.tsx`, `app/not-found.tsx`) still use the old amber palette and don't respond to the theme toggle. Low urgency since there's no toggle available pre-login anyway, but worth a pass for visual consistency.
+- [ ] **Recolor QuillIcon for the new palette** — the quill logo's hardcoded amber/gold hex fills (`components/QuillIcon.tsx`) don't participate in the paper/ink/accent token system and stay static across light/dark mode. Left as-is deliberately (a warm quill reads fine as a standalone mark), but worth reconsidering if it looks dated next to the new editorial palette.

@@ -35,7 +35,7 @@ function AuthorAvatar({ author }: { author: Author }) {
 
   return (
     <div
-      className="flex-none w-11 h-11 rounded-badge-lg bg-amber-50 border border-amber-200 flex items-center justify-center overflow-hidden text-badge font-display font-semibold text-amber-700"
+      className="flex-none w-8 h-8 rounded-control bg-ink text-paper flex items-center justify-center overflow-hidden text-[13px] font-semibold"
       aria-hidden="true"
     >
       {src && !failed ? (
@@ -43,9 +43,9 @@ function AuthorAvatar({ author }: { author: Author }) {
         <img
           src={src}
           alt=""
-          width={28}
-          height={28}
-          className="w-7 h-7 object-contain"
+          width={32}
+          height={32}
+          className="w-full h-full object-contain"
           onError={() => setFailed(true)}
         />
       ) : (
@@ -84,7 +84,7 @@ export function AuthorFeed() {
     return (
       <div className="space-y-3">
         {[...Array(2)].map((_, i) => (
-          <div key={i} className="bg-white rounded-xl border border-gray-200 h-40 animate-pulse" />
+          <div key={i} className="bg-card rounded-card border border-card-border h-40 animate-pulse" />
         ))}
       </div>
     );
@@ -93,8 +93,8 @@ export function AuthorFeed() {
   if (failed) {
     return (
       <div className="space-y-4">
-        <h2 className="text-base font-medium text-gray-400 uppercase font-display tracking-section-label">From the Authors</h2>
-        <p className="text-sm text-gray-400">Couldn&apos;t load author feeds right now — try refreshing.</p>
+        <h2 className="text-xs font-display font-semibold uppercase tracking-widest text-muted">From the Authors</h2>
+        <p className="text-sm text-muted">Couldn&apos;t load author feeds right now — try refreshing.</p>
       </div>
     );
   }
@@ -103,21 +103,21 @@ export function AuthorFeed() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-base font-medium text-gray-400 uppercase font-display tracking-section-label">From the Authors</h2>
+      <h2 className="text-xs font-display font-semibold uppercase tracking-widest text-muted">From the Authors</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {authors.map((author) => (
-          <div key={author.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div key={author.id} className="bg-card rounded-card border border-card-border overflow-hidden">
             {/* flex-wrap: at 2-column card widths (roughly the sm-lg range,
                 sidebar hidden) there isn't room for avatar + name + button
                 on one line — the button drops to its own row rather than
                 the name getting crushed and truncated */}
-            <div className="flex flex-wrap items-center gap-x-3.25 gap-y-2 px-4.5 py-4 border-b border-gray-100">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-[18px] border-b border-card-border">
               <AuthorAvatar author={author} />
               <div className="flex-1 min-w-[120px]">
-                <p className="text-title-md font-display font-semibold text-gray-900 truncate">
+                <p className="text-base font-semibold text-ink truncate">
                   {author.name}
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs font-display uppercase tracking-[0.04em] text-muted-2 mt-0.5">
                   {author.articles.length} {author.articles.length === 1 ? "article" : "articles"}
                 </p>
               </div>
@@ -125,30 +125,30 @@ export function AuthorFeed() {
                 href={author.website_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-none text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-full px-3.25 py-1.5 whitespace-nowrap transition-colors"
+                className="flex-none text-[11.5px] font-semibold tracking-[0.02em] text-accent border-b border-accent whitespace-nowrap"
               >
                 Read on {siteLabel(author.website_url)} ↗
               </a>
             </div>
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-card-border">
               {author.articles.length === 0 ? (
-                <li className="px-4.5 py-3.5 text-sm text-gray-400">No free articles found.</li>
+                <li className="px-5 py-4 text-sm text-muted">No free articles found.</li>
               ) : (
                 author.articles.map((article) => (
-                  <li key={article.url} className="px-4.5 py-3.5">
+                  <li key={article.url} className="px-5 py-4">
                     <a
                       href={article.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block text-title-xs font-display font-medium text-gray-900 hover:text-blue-600 mb-0.75"
+                      className="block text-title-xs font-semibold text-ink hover:text-accent mb-1.5"
                     >
                       {article.title}
                     </a>
                     {article.description && (
-                      <p className="text-xs text-gray-500 line-clamp-2">{article.description}</p>
+                      <p className="text-xs text-muted line-clamp-2">{article.description}</p>
                     )}
                     {article.published_at && (
-                      <p className="text-2xs text-gray-500 mt-1.5">
+                      <p className="text-xs font-display text-muted-2 mt-1.5">
                         {new Date(article.published_at).toLocaleDateString("en-US", {
                           month: "short", day: "numeric", year: "numeric",
                         })}

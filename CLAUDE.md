@@ -25,9 +25,10 @@ News article sharing app for a small friend group (~10 users).
 - `components/ArticleCard.tsx` — article card with Nods button
 - `components/SubmitArticle.tsx` — share form with preset tags + archive.is field
 - `components/AuthorFeed.tsx` — author RSS section
+- `components/ThemeToggle.tsx` — light/dark toggle, writes `data-theme` + localStorage
 - `app/manifest.ts` — PWA manifest with Android share_target
 - `app/share/page.tsx` — share-sheet landing, redirects to /feed?share=
-- `app/error.tsx` / `app/not-found.tsx` — themed error/404 pages (match login page's amber card style)
+- `app/error.tsx` / `app/not-found.tsx` — error/404 pages (still on the old amber palette, not yet ported to Broadsheet — see BACKLOG.md)
 - `proxy.ts` — session refresh + auth redirect (Next 16's middleware.ts renamed to proxy.ts)
 - `supabase/schema.sql` — articles table
 - `supabase/nods-schema.sql` — nods table
@@ -38,7 +39,8 @@ See also: `DECISIONS.md` (non-obvious choices and gotchas), `BACKLOG.md` (priori
 
 ## Conventions
 - Tags stored lowercase, displayed with `capitalize` CSS
-- Design tokens (font sizes, radii, tracking) live in `app/globals.css`'s `@theme` block, not a Tailwind config file — see DECISIONS.md before adding new `text-[Npx]`-style bracket values
-- Use `font-display` (a real Tailwind utility, not an inline style) for the Cormorant Garamond headings/titles used throughout article/author/login UI
+- "Broadsheet" design system (2026-07-08): editorial/newsroom palette (paper/ink/accent), no shadows, hairline borders. Never hardcode a Tailwind gray/white/amber class in the authenticated app shell — use the semantic `bg-paper`/`text-ink`/`border-card-border`/etc. utilities (backed by CSS variables in `app/globals.css`) so dark mode keeps working. See DECISIONS.md before adding new tokens.
+- Font roles: Work Sans (`--font-sans`, default) for titles/body/buttons; Cormorant Garamond (`font-display`) *only* for small-caps meta/eyebrow text (site names, section labels, tags, dates) — this inverted from the app's earlier font pairing, see DECISIONS.md.
+- Dark mode is explicit (`data-theme` attribute + localStorage via `ThemeToggle.tsx`), not `prefers-color-scheme`.
 - Run tests: `npm test`
 - Type check: `./node_modules/.bin/tsc --noEmit`
