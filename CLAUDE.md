@@ -14,6 +14,9 @@ News article sharing app for a small friend group (~10 users).
 - `lib/validate.ts` — server-side input validation (http/https-only URLs, length caps); wire new writable fields through this
 - `lib/api-errors.ts` — `dbErrorResponse` maps DB errors to safe client messages; use for any route touching the database
 - `lib/url.ts` — `getHostname()`, the single shared URL-hostname parser (ArticleCard, AuthorFeed)
+- `lib/rate-limit.ts` / `lib/server-cache.ts` — in-memory per-user rate limiting + TTL caches for fetch-og/archive-check (per-instance by design, see DECISIONS.md)
+- `lib/paywall.ts` — RSS paywall heuristics (extracted from author-articles route for testability)
+- `.github/workflows/ci.yml` — typecheck + tests + build on push/PR
 - `app/api/articles/route.ts` — GET/POST/DELETE articles
 - `app/api/nods/route.ts` — toggle nod (upvote) on an article
 - `app/api/fetch-og/route.ts` — Microlink metadata fetch with manual fallback

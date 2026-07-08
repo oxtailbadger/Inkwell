@@ -19,6 +19,8 @@ vi.mock("@/lib/supabase/server", () => ({
 
 import { createClient } from "@/lib/supabase/server";
 import { GET } from "@/app/api/archive-check/route";
+import { archiveCheckCache } from "@/lib/server-cache";
+import { _resetRateLimits } from "@/lib/rate-limit";
 
 const realFetch = global.fetch;
 
@@ -31,6 +33,10 @@ function makeRequest(url?: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The route caches positive lookups and rate-limits per user; both are
+  // module-level state that must not leak between tests
+  archiveCheckCache.clear();
+  _resetRateLimits();
   vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
 });
 
@@ -69,6 +75,38 @@ describe("GET /api/archive-check", () => {
     const res = await GET(makeRequest("https://example.com/a"));
     const body = await res.json();
     expect(body).toEqual({ found: false });
+  });
+
+  it("serves a repeat lookup for the same URL from cache without re-fetching", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(null, { status: 302, headers: { location: "https://archive.ph/AbCd3" } })
+    );
+    await GET(makeRequest("https://example.com/cached"));
+    const res = await GET(makeRequest("https://example.com/cached"));
+    const body = await res.json();
+    expect(body).toEqual({ found: true, archive_url: "https://archive.ph/AbCd3" });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not cache found:false — a later lookup re-checks", async () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response(null, { status: 404 }));
+    await GET(makeRequest("https://example.com/notyet"));
+    await GET(makeRequest("https://example.com/notyet"));
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns 429 found:false past the per-user rate limit", async () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response(null, { status: 404 }));
+    // Distinct URLs so the cache can't absorb the calls; limit is 10/min
+    for (let i = 0; i < 10; i++) {
+      await GET(makeRequest(`https://example.com/${i}`));
+    }
+    const res = await GET(makeRequest("https://example.com/eleventh"));
+    const body = await res.json();
+    expect(res.status).toBe(429);
+    expect(body).toEqual({ found: false });
+    expect(res.headers.get("Retry-After")).toBeTruthy();
+    expect(global.fetch).toHaveBeenCalledTimes(10);
   });
 
   it("returns 400 when no url is provided", async () => {

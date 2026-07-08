@@ -2,35 +2,11 @@ import { NextResponse } from "next/server";
 import Parser from "rss-parser";
 import { createClient } from "@/lib/supabase/server";
 import { dbErrorResponse } from "@/lib/api-errors";
-
-type RSSItem = {
-  title?: string;
-  link?: string;
-  contentSnippet?: string;
-  pubDate?: string;
-  categories?: string[];
-};
+// Heuristics live in lib/paywall.ts so they're unit-testable (route files
+// may only export route handlers)
+import { isPaywalled, type RSSItem } from "@/lib/paywall";
 
 const parser = new Parser();
-
-const PAID_CATEGORIES = ["daily update", "this week in stratechery"];
-const PAID_DESCRIPTION_MARKERS = [
-  "thank you for being a paid subscriber",
-  "this post is for paid subscribers",
-  "subscribe to read",
-  "for paying subscribers",
-];
-
-function isPaywalled(item: RSSItem): boolean {
-  const desc = (item.contentSnippet ?? "").toLowerCase();
-  const cats = (item.categories ?? []).map((c) => c.toLowerCase());
-
-  if (PAID_CATEGORIES.some((p) => cats.includes(p))) return true;
-  if (PAID_DESCRIPTION_MARKERS.some((m) => desc.includes(m))) return true;
-  if (desc.length > 0 && desc.length < 80) return true;
-
-  return false;
-}
 
 export async function GET() {
   const supabase = await createClient();
