@@ -19,16 +19,16 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-amber-50 px-4">
-      <div className="bg-white rounded-2xl shadow-md border border-amber-100 px-10 pt-10 pb-10 w-full max-w-sm text-center">
+    <div className="min-h-screen flex items-center justify-center bg-paper px-4">
+      <div className="bg-card rounded-card border border-card-border px-10 pt-10 pb-10 w-full max-w-sm text-center">
         <div className="flex flex-col items-center mb-6">
-          <div className="bg-amber-50 rounded-2xl p-4 mb-4 shadow-inner border border-amber-100">
+          <div className="bg-paper rounded-control p-4 mb-4 border border-card-border">
             <QuillIcon className="w-16 h-16" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-900 font-display">
+          <h1 className="text-2xl font-bold tracking-[-0.01em] text-ink">
             Something spilled
           </h1>
-          <p className="text-sm text-slate-500 mt-2">
+          <p className="text-sm text-muted mt-2">
             That page ran into a problem loading. It's usually temporary.
           </p>
         </div>
@@ -36,13 +36,13 @@ export default function Error({
         <div className="flex flex-col gap-2">
           <button
             onClick={() => unstable_retry()}
-            className="w-full bg-amber-700 text-white rounded-lg py-2 text-sm font-medium hover:bg-amber-800 transition-colors"
+            className="w-full bg-accent text-card rounded-control py-2.5 text-sm font-semibold hover:bg-accent-hover transition-colors"
           >
             Try again
           </button>
           <Link
             href="/feed"
-            className="w-full rounded-lg py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+            className="w-full rounded-control py-2.5 text-sm font-semibold text-muted hover:text-ink transition-colors"
           >
             Back to the feed
           </Link>

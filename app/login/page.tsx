@@ -55,15 +55,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-amber-50">
-      <div className="bg-white rounded-2xl shadow-md border border-amber-100 px-10 pt-10 pb-10 w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center bg-paper px-4">
+      <div className="bg-card rounded-card border border-card-border px-10 pt-10 pb-10 w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-amber-50 rounded-2xl p-4 mb-4 shadow-inner border border-amber-100">
-            <QuillIcon className="w-20 h-20" />
+          <div className="bg-paper rounded-control p-4 mb-4 border border-card-border">
+            <QuillIcon className="w-16 h-16" />
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 font-display">Inkwell</h1>
-          <p className="text-sm text-slate-500 mt-1 text-center">
+          <h1 className="text-2xl font-bold tracking-[-0.01em] text-ink">Inkwell</h1>
+          <p className="text-xs font-display text-muted-2 mt-1 text-center">
             Articles worth reading, shared by friends.
           </p>
         </div>
@@ -72,13 +72,13 @@ export default function LoginPage() {
           <div className="py-4">
             <div className="text-center">
               <div className="text-4xl mb-4">📬</div>
-              <p className="font-semibold text-slate-900">Check your inbox</p>
-              <p className="text-sm text-slate-500 mt-1">
-                We sent a sign-in link and code to <strong>{email}</strong>
+              <p className="font-semibold text-ink">Check your inbox</p>
+              <p className="text-sm text-muted mt-1">
+                We sent a sign-in link and code to <strong className="text-ink">{email}</strong>
               </p>
             </div>
             <form onSubmit={handleVerifyCode} className="mt-6 space-y-3">
-              <label htmlFor="otp" className="block text-sm font-medium text-slate-700">
+              <label htmlFor="otp" className="block text-sm font-medium text-ink">
                 Or enter the code from the email
               </label>
               <input
@@ -90,13 +90,13 @@ export default function LoginPage() {
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="123456"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-center tracking-[0.3em] font-medium focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                className="w-full rounded-control border border-card-border bg-card px-3.5 py-2.5 text-sm text-ink text-center tracking-[0.3em] font-medium placeholder:text-muted-2 focus:outline-none focus:border-accent"
               />
               {error && <p className="text-sm text-red-600">{error}</p>}
               <button
                 type="submit"
                 disabled={verifying || !code.trim()}
-                className="w-full bg-amber-700 text-white rounded-lg py-2 text-sm font-medium hover:bg-amber-800 disabled:opacity-50 transition-colors"
+                className="w-full bg-accent text-card rounded-control py-2.5 text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors"
               >
                 {verifying ? "Verifying…" : "Sign in with code"}
               </button>
@@ -105,7 +105,7 @@ export default function LoginPage() {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-ink mb-1">
                 Email address
               </label>
               <input
@@ -115,14 +115,14 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                className="w-full rounded-control border border-card-border bg-card px-3.5 py-2.5 text-sm text-ink placeholder:text-muted-2 focus:outline-none focus:border-accent"
               />
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-amber-700 text-white rounded-lg py-2 text-sm font-medium hover:bg-amber-800 disabled:opacity-50 transition-colors"
+              className="w-full bg-accent text-card rounded-control py-2.5 text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors"
             >
               {loading ? "Sending…" : "Send magic link"}
             </button>
