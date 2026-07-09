@@ -2,6 +2,8 @@
 
 Items are roughly ordered by priority within each section. Move things between sections freely as priorities shift.
 
+**Before deploying the 2026-07-09 pagination/save-read-dismiss change:** run `supabase/nod-counts-view.sql` and `supabase/article-state-schema.sql` in the Supabase SQL editor. `lib/articles.ts` unconditionally queries both the `article_nod_counts` view and the `article_state` table now — without them, `GET /api/articles` (and the server-rendered `/feed` page) will fail for everyone, not just the new features.
+
 ---
 
 ## Features
@@ -13,7 +15,7 @@ Items are roughly ordered by priority within each section. Move things between s
 - [ ] **Weekly digest email** — a cron-triggered email (Resend or Postmark) with the top-nodded articles from the past 7 days.
 - [ ] **Full-text search** — search across everything ever shared, title + description (article body if Reader view lands). Postgres `tsvector`/`tsquery` with a GIN index makes this nearly free on Supabase; the group's collective memory ("what was that shipping piece from last year?").
 - [ ] **Pull quotes** — let the sharer attach a highlighted sentence when submitting ("this is the paragraph that made me send this"). New nullable `pull_quote` column on articles + a textarea in SubmitArticle + styled blockquote on the card. Cheap to build, answers "why should I read this?"
-- [ ] **Save for later + mark as read** — two per-user, per-article flags (private, unlike Nods): a personal reading queue ("Saved" filter or sidebar section) and a read marker so users can track what they've gotten through. One `article_flags` table with composite PK (article_id, user_id) and boolean/timestamp columns covers both.
+- [ ] **"Saved" filter/view** — Save, Mark read, and Dismiss (2026-07-09, see DECISIONS.md) added a kebab menu on each article card with per-user saved/read/dismissed state (`article_state` table), a "Saved"/"Saved · Read" chip, and a quiet read-dot — but there's still no dedicated view to browse *just* your saved articles, only the inline indicator on cards you scroll past. A sidebar/tag-bar-style "Saved" filter reusing the existing tag-filter UI pattern in `FeedClient.tsx` would close this out.
 - [ ] **Bookmarklet or browser extension** — desktop capture friction. Start with a bookmarklet (an afternoon: a `javascript:` link that opens `/share?url=` + current page URL — reuses the Web Share Target landing route as-is); only graduate to a Chrome extension if the group wants context menus or one-click submit.
 - [ ] **Reader view** — parse article text server-side (Mozilla Readability) and offer a clean in-app reading page. Highest-effort item here and legally gray for paywalled content; pairs with the archive.is habit. Only build if testers ask for it.
 - [ ] **Update user email** — let a signed-in user change their login email. Supabase supports `auth.updateUser({ email })` with a confirmation link to the new address; needs a small settings page/modal plus handling for the confirmation state. Note: display names derive from the original email prefix at signup, so decide whether an email change should refresh `profiles.display_name`.
@@ -27,7 +29,6 @@ Findings from the full acquisition-style code review (2026-07-07, full details i
 ### Launch blockers — do before any public exposure
 
 - [ ] **Enforce the access model in code, not dashboard config** — every RLS read policy is `using (true)` for any authenticated user, so privacy still depends partly on the unversioned "allow new signups" Supabase dashboard toggle. `signInWithOtp` now passes `shouldCreateUser: false` (2026-07-09, see DECISIONS.md), which closes the client-side half; the remaining fix is an allowlist table checked by RLS, or the invite flow (see Deferred).
-- [ ] **Pagination + DB-side nod counts** — `lib/articles.ts` fetches every article ever posted, then all nods, and aggregates in JS (O(articles × nods) per request). Add limit/cursor pagination to GET /api/articles and move nod counting into Postgres (view or `count(*) group by article_id` RPC). FeedClient needs a "load more" affordance.
 - [ ] **Custom SMTP before launch** — auth emails ride Supabase's built-in dev-only sender (a few emails/hour). Set up Resend or Postmark with SPF/DKIM on a real domain; also unblocks the weekly digest feature.
 
 ### Medium priority

@@ -40,13 +40,29 @@ function makeSupabaseMock({
   const selectAfterInsert = vi.fn(() => ({ single }));
   const insert = vi.fn(() => ({ select: selectAfterInsert }));
 
-  const order = vi.fn().mockResolvedValue({ data: selectData, error: selectError });
-  const contains = vi.fn(() => ({ order }));
-  // .in() is used for the nods sub-query — return empty nods list
+  // Articles listing chain: select("*").order(...).order(...).limit(...)[.contains(...)][.or(...)]
+  // then awaited — a fluent object where every hop returns itself, thenable at the end.
+  const articlesResult = { data: selectData, error: selectError };
+  const chain: Record<string, unknown> = {};
+  for (const method of ["order", "limit", "contains", "or", "not"]) {
+    chain[method] = vi.fn(() => chain);
+  }
+  chain.then = (resolve: (v: typeof articlesResult) => void) =>
+    Promise.resolve(articlesResult).then(resolve);
+  const { order, contains } = chain as { order: ReturnType<typeof vi.fn>; contains: ReturnType<typeof vi.fn> };
+
+  // .in() is used for the article_nod_counts / nods sub-queries — empty by default
   const inFn = vi.fn().mockResolvedValue({ data: [], error: null });
   const maybeSingle = vi.fn().mockResolvedValue({ data: lookupData, error: lookupError });
-  const selectEq = vi.fn(() => ({ maybeSingle }));
-  const select = vi.fn(() => ({ order, contains, in: inFn, eq: selectEq }));
+  // .eq() is shared by two different chains: DELETE's ownership lookup
+  // (.eq("id",...).maybeSingle()) and the per-user nods query
+  // (.eq("user_id",...).in(...)) — both methods live on the same returned
+  // object since which one gets called depends on the test scenario.
+  // .eq() also serves article_state's dismissed-exclusion pre-query
+  // (.eq("user_id",...).eq("dismissed",true)) — empty by default, same as
+  // the nods/article_nod_counts .in() branches below.
+  const selectEq = vi.fn(() => ({ maybeSingle, in: inFn, eq: inFn }));
+  const select = vi.fn(() => ({ ...chain, in: inFn, eq: selectEq }));
 
   const deleteEq2 = vi.fn().mockResolvedValue({ error: deleteError });
   const deleteEq1 = vi.fn(() => ({ eq: deleteEq2 }));
@@ -59,7 +75,7 @@ function makeSupabaseMock({
       }),
     },
     from: vi.fn(() => ({ insert, select, delete: del })),
-    _mocks: { insert, select, single, order, del, maybeSingle },
+    _mocks: { insert, select, single, order, del, maybeSingle, limit: chain.limit as ReturnType<typeof vi.fn> },
   };
 }
 
@@ -182,19 +198,37 @@ describe("POST /api/articles", () => {
 });
 
 describe("GET /api/articles", () => {
-  it("returns the list of articles for an authenticated user", async () => {
+  it("returns a page of articles plus a pagination cursor for an authenticated user", async () => {
     vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
     const res = await GET(makeRequest("GET"));
     const body = await res.json();
     expect(res.status).toBe(200);
-    expect(Array.isArray(body)).toBe(true);
-    expect(body[0].url).toBe(mockArticle.url);
+    expect(Array.isArray(body.articles)).toBe(true);
+    expect(body.articles[0].url).toBe(mockArticle.url);
+    expect(body).toHaveProperty("nextCursor");
   });
 
   it("returns 401 when unauthenticated", async () => {
     vi.mocked(createClient).mockResolvedValue(makeSupabaseMock({ authed: false }) as never);
     const res = await GET(makeRequest("GET"));
     expect(res.status).toBe(401);
+  });
+
+  it("returns 400 for a cursor that can't be decoded", async () => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
+    const res = await GET(makeRequest("GET", undefined, { cursor: "not-a-real-cursor" }));
+    const body = await res.json();
+    expect(res.status).toBe(400);
+    expect(body.error).toBeTruthy();
+  });
+
+  it("clamps an oversized limit to the maximum page size", async () => {
+    const supabase = makeSupabaseMock();
+    vi.mocked(createClient).mockResolvedValue(supabase as never);
+    const res = await GET(makeRequest("GET", undefined, { limit: "9999" }));
+    expect(res.status).toBe(200);
+    // limit+1 rows are requested to detect a next page — 50 (MAX_PAGE_SIZE) + 1, not 9999 + 1
+    expect(supabase._mocks.limit).toHaveBeenCalledWith(51);
   });
 });
 

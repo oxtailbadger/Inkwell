@@ -13,13 +13,14 @@ export default async function FeedPage({
   if (!user) redirect("/login");
 
   const tag = (await searchParams).tag ?? null;
-  const { articles } = await fetchEnrichedArticles(supabase, user.id, tag);
+  const { articles, nextCursor } = await fetchEnrichedArticles(supabase, user.id, tag, { limit: 24 });
 
   return (
     <FeedClient
       userEmail={user.email!}
       userId={user.id}
       initialArticles={articles ?? []}
+      initialNextCursor={nextCursor}
       initialTag={tag}
     />
   );

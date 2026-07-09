@@ -10,7 +10,7 @@ News article sharing app for a small friend group (~10 users).
 
 ## Key files
 - `app/feed/FeedClient.tsx` — main feed page (sidebar, articles grid, author feed); first page is server-rendered via page.tsx, tag filter lives in ?tag= URL param
-- `lib/articles.ts` — shared article fetch + enrichment (nods, submitter names), used by both the API route and the server page
+- `lib/articles.ts` — shared article fetch + enrichment (cursor pagination, nod counts, submitter names, per-user saved/read/dismissed state), used by both the API route and the server page
 - `lib/validate.ts` — server-side input validation (http/https-only URLs, length caps); wire new writable fields through this
 - `lib/api-errors.ts` — `dbErrorResponse` maps DB errors to safe client messages; use for any route touching the database
 - `lib/url.ts` — `getHostname()`, the single shared URL-hostname parser (ArticleCard, AuthorFeed)
@@ -19,21 +19,25 @@ News article sharing app for a small friend group (~10 users).
 - `lib/logger.ts` — `logInfo`/`logWarn`/`logError`, enforces the `[route-name]` log-prefix convention; route through this instead of calling `console.*` directly
 - `instrumentation.ts` — validates required env vars at server boot (Next's `register()` hook), fails fast with a clear message instead of a cryptic `process.env.X!` crash
 - `.github/workflows/ci.yml` — typecheck + tests + build on push/PR
-- `app/api/articles/route.ts` — GET/POST/DELETE articles
+- `app/api/articles/route.ts` — GET (paginated, `?cursor=&limit=`) /POST/DELETE articles
 - `app/api/nods/route.ts` — toggle nod (upvote) on an article
+- `app/api/article-state/route.ts` — PATCH per-user save/read/dismiss state, action-discriminated body (see DECISIONS.md)
 - `app/api/fetch-og/route.ts` — Microlink metadata fetch with manual fallback
 - `app/api/archive-check/route.ts` — best-effort archive.today snapshot lookup (see DECISIONS.md)
 - `app/api/author-articles/route.ts` — RSS feed for Ben Thompson + Derek Thompson
-- `components/ArticleCard.tsx` — article card with Nods button
+- `components/ArticleCard.tsx` — article card with Nods button + Save/Read/Dismiss kebab menu
 - `components/SubmitArticle.tsx` — share form with preset tags + archive.is field
 - `components/AuthorFeed.tsx` — author RSS section
 - `components/ThemeToggle.tsx` — light/dark toggle, writes `data-theme` + localStorage
+- `components/Toast.tsx` — dismiss-with-undo toast stack, state owned by FeedClient
 - `app/manifest.ts` — PWA manifest with Android share_target
 - `app/share/page.tsx` — share-sheet landing, redirects to /feed?share=
 - `app/error.tsx` / `app/not-found.tsx` — themed error/404 pages, Broadsheet palette
 - `proxy.ts` — session refresh + auth redirect (Next 16's middleware.ts renamed to proxy.ts)
 - `supabase/schema.sql` — articles table
 - `supabase/nods-schema.sql` — nods table
+- `supabase/nod-counts-view.sql` — `article_nod_counts` view (pre-aggregated counts, see DECISIONS.md)
+- `supabase/article-state-schema.sql` — `article_state` table (per-user saved/read/dismissed, private RLS)
 - `supabase/authors-schema.sql` — authors table + seed data
 - `supabase/profiles-schema.sql` — profiles table (display names) + signup trigger + backfill
 
@@ -44,5 +48,7 @@ See also: `DECISIONS.md` (non-obvious choices and gotchas), `BACKLOG.md` (priori
 - "Broadsheet" design system (2026-07-08): editorial/newsroom palette (paper/ink/accent), no shadows, hairline borders. Never hardcode a Tailwind gray/white/amber class in the authenticated app shell — use the semantic `bg-paper`/`text-ink`/`border-card-border`/etc. utilities (backed by CSS variables in `app/globals.css`) so dark mode keeps working. See DECISIONS.md before adding new tokens.
 - Font roles: Work Sans (`--font-sans`, default) for titles/body/buttons; Cormorant Garamond (`font-display`) *only* for small-caps meta/eyebrow text (site names, section labels, tags, dates) — this inverted from the app's earlier font pairing, see DECISIONS.md.
 - Dark mode is explicit (`data-theme` attribute + localStorage via `ThemeToggle.tsx`), not `prefers-color-scheme`.
+- `GET /api/articles` is cursor-paginated (`{ articles, nextCursor }`), not a raw array — see DECISIONS.md before changing the query shape in `fetchEnrichedArticles`. Dismissed articles are excluded server-side, not client-filtered.
+- Colors that must stay constant regardless of theme (e.g. `components/Toast.tsx`) use hardcoded hex, not `bg-ink`/`text-paper` — those tokens flip in dark mode, a fixed-dark toast needs literal values instead. See DECISIONS.md.
 - Run tests: `npm test`
 - Type check: `./node_modules/.bin/tsc --noEmit`

@@ -4,6 +4,18 @@ What's new in Inkwell, in plain language. A new entry is added with each release
 
 ---
 
+## July 9, 2026 *(pending — draft for review)*
+
+### 🔖 Save, mark read, and dismiss articles
+
+Every article card now has a **⋮** menu in the top corner of its image. From there you can **Save** an article for later, **mark it read**, or **dismiss** it if it's not for you — dismissed articles slide out of your feed right away, with an "Undo" option that stays up for a few seconds in case you change your mind. Saved articles get a small "Saved" tag; articles you've read get a quiet dot next to your name so you can tell what you've already gotten to, without cluttering the feed.
+
+### ⚡ Faster loading
+
+The feed now loads in smaller batches with a **Load more** button at the bottom of the page, instead of fetching every article ever shared at once. Nod counts also load faster behind the scenes.
+
+---
+
 ## July 8, 2026 *(pending — draft for review)*
 
 ### 🖋️ Broadsheet: a new editorial look

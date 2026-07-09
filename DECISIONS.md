@@ -182,3 +182,29 @@ Tags are normalized to lowercase on insert. Display uses Tailwind's `capitalize`
 ## Structured logging: route handlers log through lib/logger.ts
 
 `lib/logger.ts` exports `logInfo`/`logWarn`/`logError`, thin wrappers around `console.*` that enforce the `[route-name]` prefix convention `fetch-og`/`archive-check`/`author-articles` already used ad hoc. `dbErrorResponse` (`lib/api-errors.ts`) and `fetchEnrichedArticles` (`lib/articles.ts`) also route through it now. This doesn't add a log drain or change what's logged — it's the same Vercel-console-log approach as before, just codified so every server log line is consistently greppable by context. `app/error.tsx`'s client-side `console.error("[app-error]", ...)` is intentionally left alone — it logs to the browser console from a client error boundary, a different concern than server route logging.
+
+---
+
+## Pagination: cursor-based, and why nod counts moved into a Postgres view
+
+`lib/articles.ts`'s `fetchEnrichedArticles` used to fetch every article ever posted, then every nod on those articles, and count in JS (O(articles × nods) per request — the original launch-blocker finding). As of 2026-07-09 it takes `{ limit, cursor }` and returns `{ articles, nextCursor }`.
+
+**Cursor, not offset/limit:** the cursor is an opaque base64 encoding of `{created_at, id}` (`encodeCursor`/`decodeCursor` in `lib/articles.ts`), not a page number. Offset pagination breaks the moment the underlying row set can shrink between two requests — which is exactly what dismissed articles do (see below) — silently double-counting or skipping rows. `created_at` alone isn't a safe sort key either (two articles can share a timestamp), so `id` is a tie-breaker: `order(created_at desc).order(id desc)`, plus one extra row fetched past `limit` purely to know whether a next page exists.
+
+**Nod counts: a Postgres view (`article_nod_counts`, `supabase/nod-counts-view.sql`), not a JS loop.** `count(*) group by article_id` in Postgres, queried the same way the old raw-`nods` batched query was (`.in("article_id", pageArticleIds)`) — same call shape, pre-aggregated result. Views inherit the base table's RLS for reads but still need an explicit `grant select ... to authenticated`, or the query 42501s. Nod counts stay public (matching existing behavior) since `nods`' own RLS already allows any authenticated user to read.
+
+**Operational note:** `fetchEnrichedArticles` queries this view unconditionally now — the view must exist before this code ships, or `GET /api/articles` (and the server-rendered `/feed` page) breaks for everyone. See the note at the top of `BACKLOG.md`.
+
+---
+
+## Save / Read / Dismiss: one table + one action-discriminated endpoint, dismiss excluded server-side
+
+Per-user article state (`saved`, `read`, `dismissed` — 2026-07-09) lives in one `article_state` table (`supabase/article-state-schema.sql`), composite PK `(article_id, user_id)` like `nods`, but with RLS scoped to `auth.uid() = user_id` on every policy (including `select`) — unlike `nods`, this state is private, not a public count. It also has an `update` policy that `nods` doesn't need, since this table upserts once and then flips individual columns rather than being inserted-or-deleted as a whole row.
+
+**One `PATCH /api/article-state` endpoint, action-discriminated** (`{ article_id, action: "save"|"unsave"|"read"|"unread"|"dismiss"|"undismiss" }`) instead of three near-duplicate routes or a generic multi-field PATCH. The explicit action names document that dismiss/undismiss is an asymmetric flow (paired with a client-side undo window) rather than just another boolean flip.
+
+**Dismissed articles are excluded at the query level, not filtered client-side.** `fetchEnrichedArticles` looks up the caller's dismissed article IDs first (small, bounded query) and applies `.not("id", "in", ...)` to the main articles query before pagination math runs. This was decided *before* writing the pagination code, not bolted on after — filtering dismissed rows client-side after the fact would make `loadMore()`'s page sizes wrong (a page of 24 minus a few dismissed renders as fewer than 24, and cursor math would need to account for skipped rows it can't see).
+
+**Dismiss commits immediately; there's no delayed server-side commit.** The kebab menu's Dismiss action fires the `PATCH .../dismiss` write immediately (optimistic UI, revert-on-failure — same pattern as the existing nod toggle), *before* the undo toast even appears. The 4.5s toast window with an Undo button (`components/Toast.tsx`, state owned by `FeedClient`) only controls how long Undo stays available client-side; clicking it fires a compensating `PATCH .../undismiss`. A delayed-commit approach (write only after the toast expires) was considered and rejected: `lib/rate-limit.ts`/`lib/server-cache.ts` already document that in-memory per-instance state doesn't survive cold starts or span concurrent instances, and a pending dismiss-write is exactly that kind of state — it could fire on a different instance than the one that receives the Undo click, or vanish on a redeploy.
+
+**The toast's colors are hardcoded, not theme tokens — on purpose.** `components/Toast.tsx` uses literal `bg-[#17130f] text-[#fffdfa]`, not `bg-ink text-paper`. The design spec calls for the Undo button to always be `#7fcf9e` (the dark-mode accent tone) "for contrast against the dark toast regardless of page theme" — but `--ink`/`--paper` themselves flip in dark mode (`--ink` becomes the *light* color), so using those tokens would invert the toast to a light background in dark mode and make the hardcoded green Undo text nearly unreadable. Caught by testing the dismiss flow in dark mode during this feature's verification, not by reading the spec text alone — the spec's token names and its own stated intent were in tension, and intent won.

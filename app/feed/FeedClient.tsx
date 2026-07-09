@@ -8,7 +8,10 @@ import { SubmitArticle } from "@/components/SubmitArticle";
 import { QuillIcon } from "@/components/QuillIcon";
 import { AuthorFeed } from "@/components/AuthorFeed";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ToastStack, type ToastItem } from "@/components/Toast";
 import type { Article } from "@/lib/articles";
+
+const DISMISS_TOAST_MS = 4500;
 
 const NAV_ITEMS = [
   { label: "Articles", href: "#articles" },
@@ -19,11 +22,13 @@ export default function FeedClient({
   userEmail,
   userId,
   initialArticles,
+  initialNextCursor,
   initialTag,
 }: {
   userEmail: string;
   userId: string;
   initialArticles: Article[];
+  initialNextCursor: string | null;
   initialTag: string | null;
 }) {
   const searchParams = useSearchParams();
@@ -37,6 +42,8 @@ export default function FeedClient({
     if (sharedUrl) window.history.replaceState(null, "", "/feed");
   }, [sharedUrl]);
   const [articles, setArticles] = useState<Article[]>(initialArticles);
+  const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [activeSection, setActiveSection] = useState("articles");
   const [loading, setLoading] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
@@ -44,6 +51,17 @@ export default function FeedClient({
   // that when the tag changes or a submission triggers a reload
   const hydratedFromServer = useRef(true);
 
+  // Save/Read/Dismiss: only one card's kebab menu open at a time, app-wide
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  // Dismissed-but-not-yet-undone articles stay in `articles` and just render
+  // collapsed — never spliced out mid-session (avoids reorder-on-undo bugs).
+  // The server excludes them from the *next* full fetch instead.
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const dismissTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Full-list replace (initial load, tag change, post-submit refresh) — not
+  // to be confused with loadMore() below, which appends instead of replacing
   const loadArticles = useCallback(async () => {
     setLoading(true);
     setFeedError(null);
@@ -52,14 +70,35 @@ export default function FeedClient({
       const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load articles");
-      setArticles(Array.isArray(data) ? data : []);
+      setArticles(Array.isArray(data.articles) ? data.articles : []);
+      setNextCursor(data.nextCursor ?? null);
     } catch (e) {
       setFeedError(`Could not load articles: ${e instanceof Error ? e.message : "network error"}`);
       setArticles([]);
+      setNextCursor(null);
     } finally {
       setLoading(false);
     }
   }, [activeTag]);
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setFeedError(null);
+    try {
+      const params = new URLSearchParams({ cursor: nextCursor });
+      if (activeTag) params.set("tag", activeTag);
+      const res = await fetch(`/api/articles?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load more articles");
+      setArticles((prev) => [...prev, ...(Array.isArray(data.articles) ? data.articles : [])]);
+      setNextCursor(data.nextCursor ?? null);
+    } catch (e) {
+      setFeedError(`Could not load more articles: ${e instanceof Error ? e.message : "network error"}`);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
     if (hydratedFromServer.current && activeTag === initialTag) {
@@ -106,6 +145,59 @@ export default function FeedClient({
     } catch {
       setFeedError("Could not remove the article. Please try again.");
     }
+  }
+
+  function handleDismiss(id: string, title: string) {
+    setOpenMenuId(null);
+    setCollapsedIds((prev) => new Set(prev).add(id));
+
+    // Commit immediately (not delayed) — an in-memory delayed-commit could
+    // fire on a different serverless instance than the one that handles the
+    // eventual Undo click, or be lost on a cold start. The toast's timer
+    // only controls the UI window for showing Undo, not whether the write
+    // already happened.
+    fetch("/api/article-state", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ article_id: id, action: "dismiss" }),
+    }).catch(() => {
+      // Revert the collapse if the write failed
+      setCollapsedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      setFeedError("Could not dismiss the article. Please try again.");
+    });
+
+    const toastId = `${id}-${Date.now()}`;
+    const timer = setTimeout(() => {
+      dismissTimers.current.delete(toastId);
+      setToasts((prev) => prev.filter((t) => t.id !== toastId));
+    }, DISMISS_TOAST_MS);
+    dismissTimers.current.set(toastId, timer);
+    setToasts((prev) => [...prev, { id: toastId, message: `Dismissed "${title}"`, articleId: id }]);
+  }
+
+  function handleUndoDismiss(toastId: string) {
+    const toast = toasts.find((t) => t.id === toastId);
+    if (!toast) return;
+    const timer = dismissTimers.current.get(toastId);
+    if (timer) {
+      clearTimeout(timer);
+      dismissTimers.current.delete(toastId);
+    }
+    setToasts((prev) => prev.filter((t) => t.id !== toastId));
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(toast.articleId);
+      return next;
+    });
+    fetch("/api/article-state", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ article_id: toast.articleId, action: "undismiss" }),
+    }).catch(() => setFeedError("Could not undo the dismiss. Please try again."));
   }
 
   async function handleSignOut() {
@@ -235,16 +327,47 @@ export default function FeedClient({
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {articles.map((article) => (
-                  <ArticleCard
-                    key={article.id}
-                    article={article}
-                    onDelete={handleDelete}
-                    currentUserId={userId}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {articles.map((article) => {
+                    const collapsed = collapsedIds.has(article.id);
+                    return (
+                      <div
+                        key={article.id}
+                        style={{
+                          transition: "opacity 320ms ease, transform 320ms ease, max-height 320ms ease, margin 320ms ease",
+                          opacity: collapsed ? 0 : 1,
+                          transform: collapsed ? "scale(0.96)" : "scale(1)",
+                          maxHeight: collapsed ? "0px" : "1000px",
+                          overflow: collapsed ? "hidden" : undefined,
+                          pointerEvents: collapsed ? "none" : undefined,
+                        }}
+                      >
+                        <ArticleCard
+                          article={article}
+                          onDelete={handleDelete}
+                          currentUserId={userId}
+                          menuOpen={openMenuId === article.id}
+                          onToggleMenu={() => setOpenMenuId((prev) => (prev === article.id ? null : article.id))}
+                          onCloseMenu={() => setOpenMenuId(null)}
+                          onDismiss={handleDismiss}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                {nextCursor && (
+                  <div className="flex justify-center pt-2">
+                    <button
+                      onClick={loadMore}
+                      disabled={loadingMore}
+                      className="text-[13px] font-semibold text-ink bg-transparent border border-card-border rounded-control px-4 py-2 hover:bg-ink hover:text-paper transition-colors disabled:opacity-50"
+                    >
+                      {loadingMore ? "Loading…" : "Load more"}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </section>
 
@@ -273,6 +396,8 @@ export default function FeedClient({
           );
         })}
       </nav>
+
+      <ToastStack toasts={toasts} onUndo={handleUndoDismiss} />
     </div>
   );
 }

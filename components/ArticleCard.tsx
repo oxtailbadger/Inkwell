@@ -1,23 +1,43 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Article } from "@/lib/articles";
 import { getHostname } from "@/lib/url";
+
+async function patchArticleState(articleId: string, action: string) {
+  const res = await fetch("/api/article-state", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ article_id: articleId, action }),
+  });
+  if (!res.ok) throw new Error();
+}
 
 export function ArticleCard({
   article,
   onDelete,
   currentUserId,
+  menuOpen,
+  onToggleMenu,
+  onCloseMenu,
+  onDismiss,
 }: {
   article: Article;
   onDelete: (id: string) => void;
   currentUserId: string;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+  onCloseMenu: () => void;
+  onDismiss: (id: string, title: string) => void;
 }) {
   const [nodCount, setNodCount] = useState(article.nod_count);
   const [hasNodded, setHasNodded] = useState(article.user_has_nodded);
   const [nodding, setNodding] = useState(false);
   const [iconFailed, setIconFailed] = useState(false);
+  const [saved, setSaved] = useState(article.saved);
+  const [read, setRead] = useState(article.read);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const isOwner = article.submitted_by === currentUserId;
   const domain = getHostname(article.url) ?? "";
@@ -52,23 +72,103 @@ export function ArticleCard({
     }
   }
 
+  async function toggleSaved() {
+    const next = !saved;
+    setSaved(next);
+    onCloseMenu();
+    try {
+      await patchArticleState(article.id, next ? "save" : "unsave");
+    } catch {
+      setSaved(!next);
+    }
+  }
+
+  async function toggleRead() {
+    const next = !read;
+    setRead(next);
+    onCloseMenu();
+    try {
+      await patchArticleState(article.id, next ? "read" : "unread");
+    } catch {
+      setRead(!next);
+    }
+  }
+
+  // Close on outside click / Escape — only listens while this card's menu is open
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onPointerDown(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onCloseMenu();
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onCloseMenu();
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen, onCloseMenu]);
+
   return (
     <div className="bg-card rounded-card border border-card-border overflow-hidden flex flex-col">
-      <a href={article.url} target="_blank" rel="noopener noreferrer" className="block">
-        {article.image_url ? (
-          <div className="relative w-full h-[170px] bg-placeholder-bg">
-            <Image
-              src={article.image_url}
-              alt={article.title ?? "Article image"}
-              fill
-              className="object-cover"
-              unoptimized
-            />
-          </div>
-        ) : (
-          <div className="stripe-ph w-full h-[170px] bg-placeholder-bg" aria-hidden="true" />
-        )}
-      </a>
+      <div className="relative">
+        <a href={article.url} target="_blank" rel="noopener noreferrer" className="block">
+          {article.image_url ? (
+            <div className="relative w-full h-[170px] bg-placeholder-bg">
+              <Image
+                src={article.image_url}
+                alt={article.title ?? "Article image"}
+                fill
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+          ) : (
+            <div className="stripe-ph w-full h-[170px] bg-placeholder-bg" aria-hidden="true" />
+          )}
+        </a>
+
+        {/* Kebab menu — a floating overlay on the image, not card chrome, so
+            it uses one-off colors rather than paper/ink tokens */}
+        <div ref={menuRef} className="absolute top-2.5 right-2.5">
+          <button
+            onClick={onToggleMenu}
+            aria-label="Article actions"
+            aria-expanded={menuOpen}
+            className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center text-[16px] leading-none text-[#fffdfa] bg-[rgba(23,19,15,.55)] border border-[rgba(255,253,250,.5)] backdrop-blur-[3px]"
+          >
+            ⋮
+          </button>
+          {menuOpen && (
+            <div className="absolute top-[calc(100%+4px)] right-0 min-w-[160px] bg-card border border-card-border rounded-[10px] overflow-hidden shadow-[0_6px_18px_rgba(23,19,15,.14)] z-10">
+              <button
+                onClick={toggleSaved}
+                className={`w-full text-left flex items-center gap-2 px-3.5 py-2.5 text-[13px] font-medium border-b border-card-border transition-colors ${
+                  saved ? "bg-accent-tint text-accent" : "text-ink hover:bg-tag-bg"
+                }`}
+              >
+                🔖 {saved ? "Saved" : "Save"}
+              </button>
+              <button
+                onClick={toggleRead}
+                className={`w-full text-left flex items-center gap-2 px-3.5 py-2.5 text-[13px] font-medium border-b border-card-border transition-colors ${
+                  read ? "bg-tag-bg text-ink" : "text-ink hover:bg-tag-bg"
+                }`}
+              >
+                ✓ {read ? "Mark unread" : "Mark read"}
+              </button>
+              <button
+                onClick={() => onDismiss(article.id, article.title ?? article.url)}
+                className="w-full text-left flex items-center gap-2 px-3.5 py-2.5 text-[13px] font-medium text-[#a13f2e] hover:bg-tag-bg transition-colors"
+              >
+                ✕ Dismiss
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
       <div className="px-[22px] pt-[22px] pb-[22px] flex flex-col flex-1">
         <div className="flex items-center justify-between mb-3.5">
           <div className="flex items-center gap-2.25 min-w-0">
@@ -93,6 +193,11 @@ export function ArticleCard({
             <span className="text-xs font-display font-semibold uppercase tracking-[0.08em] text-muted truncate">
               {article.site_name ?? domain}
             </span>
+            {saved && (
+              <span className="flex-none text-[10px] font-semibold bg-accent-tint text-accent rounded-badge-sm px-1.5 py-0.5">
+                {read ? "Saved · Read" : "Saved"}
+              </span>
+            )}
           </div>
           {isOwner && (
             <button
@@ -157,7 +262,10 @@ export function ArticleCard({
               </a>
             )}
           </div>
-          <p className="text-xs font-display text-muted-2">
+          <p className="text-xs font-display text-muted-2 flex items-center">
+            {read && !saved && (
+              <span className="w-1.5 h-1.5 rounded-full bg-accent mr-1.5" aria-hidden="true" />
+            )}
             {isOwner ? "You" : article.submitter_name ?? "Friend"} · {new Date(article.created_at).toLocaleDateString()}
           </p>
         </div>

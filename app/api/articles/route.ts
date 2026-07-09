@@ -4,16 +4,31 @@ import { fetchEnrichedArticles } from "@/lib/articles";
 import { dbErrorResponse } from "@/lib/api-errors";
 import { LIMITS, ValidationError, validateHttpUrl, validateTags, validateText } from "@/lib/validate";
 
+const DEFAULT_PAGE_SIZE = 24;
+const MAX_PAGE_SIZE = 50;
+
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tag = request.nextUrl.searchParams.get("tag");
-  const { articles, error } = await fetchEnrichedArticles(supabase, user.id, tag);
-  if (error) return NextResponse.json({ error }, { status: 500 });
+  const cursor = request.nextUrl.searchParams.get("cursor");
+  const limitParam = Number(request.nextUrl.searchParams.get("limit"));
+  const limit = Number.isFinite(limitParam) && limitParam > 0
+    ? Math.min(limitParam, MAX_PAGE_SIZE)
+    : DEFAULT_PAGE_SIZE;
 
-  return NextResponse.json(articles);
+  const { articles, nextCursor, error } = await fetchEnrichedArticles(supabase, user.id, tag, { limit, cursor });
+  if (error) {
+    // Bad cursor input is a client mistake (400), anything else is a
+    // genuine server-side failure (500) — fetchEnrichedArticles doesn't
+    // distinguish the two in its return shape, so do it here by message.
+    const status = error === "Invalid pagination cursor" ? 400 : 500;
+    return NextResponse.json({ error }, { status });
+  }
+
+  return NextResponse.json({ articles, nextCursor });
 }
 
 export async function POST(request: NextRequest) {
