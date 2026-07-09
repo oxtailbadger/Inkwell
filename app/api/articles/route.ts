@@ -14,12 +14,13 @@ export async function GET(request: NextRequest) {
 
   const tag = request.nextUrl.searchParams.get("tag");
   const cursor = request.nextUrl.searchParams.get("cursor");
+  const savedOnly = request.nextUrl.searchParams.get("saved") === "1";
   const limitParam = Number(request.nextUrl.searchParams.get("limit"));
   const limit = Number.isFinite(limitParam) && limitParam > 0
     ? Math.min(limitParam, MAX_PAGE_SIZE)
     : DEFAULT_PAGE_SIZE;
 
-  const { articles, nextCursor, error } = await fetchEnrichedArticles(supabase, user.id, tag, { limit, cursor });
+  const { articles, nextCursor, error } = await fetchEnrichedArticles(supabase, user.id, tag, { limit, cursor, savedOnly });
   if (error) {
     // Bad cursor input is a client mistake (400), anything else is a
     // genuine server-side failure (500) — fetchEnrichedArticles doesn't

@@ -48,7 +48,7 @@ See also: `DECISIONS.md` (non-obvious choices and gotchas), `BACKLOG.md` (priori
 - "Broadsheet" design system (2026-07-08): editorial/newsroom palette (paper/ink/accent), no shadows, hairline borders. Never hardcode a Tailwind gray/white/amber class in the authenticated app shell — use the semantic `bg-paper`/`text-ink`/`border-card-border`/etc. utilities (backed by CSS variables in `app/globals.css`) so dark mode keeps working. See DECISIONS.md before adding new tokens.
 - Font roles: Work Sans (`--font-sans`, default) for titles/body/buttons; Cormorant Garamond (`font-display`) *only* for small-caps meta/eyebrow text (site names, section labels, tags, dates) — this inverted from the app's earlier font pairing, see DECISIONS.md.
 - Dark mode is explicit (`data-theme` attribute + localStorage via `ThemeToggle.tsx`), not `prefers-color-scheme`.
-- `GET /api/articles` is cursor-paginated (`{ articles, nextCursor }`), not a raw array — see DECISIONS.md before changing the query shape in `fetchEnrichedArticles`. Dismissed articles are excluded server-side, not client-filtered.
+- `GET /api/articles` is cursor-paginated (`{ articles, nextCursor }`), not a raw array — see DECISIONS.md before changing the query shape in `fetchEnrichedArticles`. Dismissed articles are excluded server-side, not client-filtered. `?saved=1` filters to saved-only and ANDs with `?tag=` (independent toggles, not mutually exclusive) — see DECISIONS.md.
 - Colors that must stay constant regardless of theme (e.g. `components/Toast.tsx`) use hardcoded hex, not `bg-ink`/`text-paper` — those tokens flip in dark mode, a fixed-dark toast needs literal values instead. See DECISIONS.md.
 - Run tests: `npm test`
 - Type check: `./node_modules/.bin/tsc --noEmit`

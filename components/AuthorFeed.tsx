@@ -103,7 +103,7 @@ export function AuthorFeed() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xs font-display font-semibold uppercase tracking-widest text-muted">From the Authors</h2>
+      <h2 className="inline-block text-sm font-display font-semibold uppercase tracking-widest text-accent border-b-2 border-accent pb-1">From the Authors</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {authors.map((author) => (
           <div key={author.id} className="bg-card rounded-card border border-card-border overflow-hidden">

@@ -44,7 +44,7 @@ function makeSupabaseMock({
   // then awaited — a fluent object where every hop returns itself, thenable at the end.
   const articlesResult = { data: selectData, error: selectError };
   const chain: Record<string, unknown> = {};
-  for (const method of ["order", "limit", "contains", "or", "not"]) {
+  for (const method of ["order", "limit", "contains", "or", "not", "in"]) {
     chain[method] = vi.fn(() => chain);
   }
   chain.then = (resolve: (v: typeof articlesResult) => void) =>
@@ -229,6 +229,15 @@ describe("GET /api/articles", () => {
     expect(res.status).toBe(200);
     // limit+1 rows are requested to detect a next page — 50 (MAX_PAGE_SIZE) + 1, not 9999 + 1
     expect(supabase._mocks.limit).toHaveBeenCalledWith(51);
+  });
+
+  it("reads ?saved=1 and returns a valid (possibly empty) page rather than erroring", async () => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
+    const res = await GET(makeRequest("GET", undefined, { saved: "1" }));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(Array.isArray(body.articles)).toBe(true);
+    expect(body).toHaveProperty("nextCursor");
   });
 });
 

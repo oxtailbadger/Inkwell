@@ -24,16 +24,19 @@ export default function FeedClient({
   initialArticles,
   initialNextCursor,
   initialTag,
+  initialSavedOnly,
 }: {
   userEmail: string;
   userId: string;
   initialArticles: Article[];
   initialNextCursor: string | null;
   initialTag: string | null;
+  initialSavedOnly: boolean;
 }) {
   const searchParams = useSearchParams();
-  // Tag filter lives in the URL so filtered views are shareable and survive reloads
+  // Tag + saved filters live in the URL so filtered views are shareable and survive reloads
   const activeTag = searchParams.get("tag");
+  const savedOnly = searchParams.get("saved") === "1";
   // Set by /share (Web Share Target); captured once — SubmitArticle seeds
   // its state from the first value, and we scrub it from the URL below
   const sharedUrl = useRef(searchParams.get("share")).current;
@@ -66,8 +69,11 @@ export default function FeedClient({
     setLoading(true);
     setFeedError(null);
     try {
-      const url = activeTag ? `/api/articles?tag=${encodeURIComponent(activeTag)}` : "/api/articles";
-      const res = await fetch(url);
+      const params = new URLSearchParams();
+      if (activeTag) params.set("tag", activeTag);
+      if (savedOnly) params.set("saved", "1");
+      const qs = params.toString();
+      const res = await fetch(qs ? `/api/articles?${qs}` : "/api/articles");
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load articles");
       setArticles(Array.isArray(data.articles) ? data.articles : []);
@@ -79,7 +85,7 @@ export default function FeedClient({
     } finally {
       setLoading(false);
     }
-  }, [activeTag]);
+  }, [activeTag, savedOnly]);
 
   async function loadMore() {
     if (!nextCursor || loadingMore) return;
@@ -88,6 +94,7 @@ export default function FeedClient({
     try {
       const params = new URLSearchParams({ cursor: nextCursor });
       if (activeTag) params.set("tag", activeTag);
+      if (savedOnly) params.set("saved", "1");
       const res = await fetch(`/api/articles?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load more articles");
@@ -101,18 +108,31 @@ export default function FeedClient({
   }
 
   useEffect(() => {
-    if (hydratedFromServer.current && activeTag === initialTag) {
+    if (hydratedFromServer.current && activeTag === initialTag && savedOnly === initialSavedOnly) {
       hydratedFromServer.current = false;
       return;
     }
     hydratedFromServer.current = false;
     loadArticles();
-  }, [loadArticles, activeTag, initialTag]);
+  }, [loadArticles, activeTag, initialTag, savedOnly, initialSavedOnly]);
 
   // Shallow history update: syncs useSearchParams without a server round-trip
   // (the tag-change effect below does the client-side fetch)
   function setActiveTag(tag: string | null) {
-    window.history.replaceState(null, "", tag ? `/feed?tag=${encodeURIComponent(tag)}` : "/feed");
+    const params = new URLSearchParams();
+    if (tag) params.set("tag", tag);
+    if (savedOnly) params.set("saved", "1");
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `/feed?${qs}` : "/feed");
+  }
+
+  // Independent of the tag filter — AND'd together, not mutually exclusive
+  function toggleSavedOnly() {
+    const params = new URLSearchParams();
+    if (activeTag) params.set("tag", activeTag);
+    if (!savedOnly) params.set("saved", "1");
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `/feed?${qs}` : "/feed");
   }
 
   // Track which section is in view based on scroll position. Throttled via
@@ -262,6 +282,20 @@ export default function FeedClient({
           <section id="articles" className="space-y-6 scroll-mt-20">
             <SubmitArticle onSubmitted={loadArticles} initialUrl={sharedUrl ?? undefined} />
 
+            {/* Independent of the tag filter below — AND'd together, not
+                mutually exclusive, so "Saved" + a tag can be active at once */}
+            <button
+              onClick={toggleSavedOnly}
+              aria-pressed={savedOnly}
+              className={`inline-flex items-center gap-1.5 text-[13px] font-medium rounded-control px-3.5 py-1.5 border transition-colors ${
+                savedOnly
+                  ? "bg-accent-tint border-accent text-accent"
+                  : "bg-transparent border-card-border text-ink hover:border-ink"
+              }`}
+            >
+              🔖 Saved
+            </button>
+
             {/* Keep the bar visible when a filter is active even if it matched
                 nothing, so "All" is always reachable */}
             {(allTags.length > 0 || activeTag) && (
@@ -309,7 +343,18 @@ export default function FeedClient({
             ) : !feedError && articles.length === 0 ? (
               <div className="text-center py-20 text-muted">
                 <p className="text-4xl mb-3">📰</p>
-                {activeTag ? (
+                {savedOnly ? (
+                  <>
+                    <p className="font-medium text-ink">No saved articles yet</p>
+                    <p className="text-sm mt-1">Use the ⋮ menu on a card to save it for later.</p>
+                    <button
+                      onClick={toggleSavedOnly}
+                      className="text-sm mt-1 text-accent border-b border-accent"
+                    >
+                      Show all articles
+                    </button>
+                  </>
+                ) : activeTag ? (
                   <>
                     <p className="font-medium text-ink">No articles tagged yet</p>
                     <button

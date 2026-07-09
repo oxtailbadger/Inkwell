@@ -26,7 +26,7 @@ const article = (id: string, submitted_by: string, created_at = "2026-07-01T00:0
 //   article_state (merge):     select(...).eq("user_id",...).in(...) — saved/read/dismissed for the page
 function makeFluentBuilder(result: { data: unknown; error: unknown }) {
   const builder: Record<string, unknown> = {};
-  for (const method of ["order", "limit", "contains", "or", "not"]) {
+  for (const method of ["order", "limit", "contains", "or", "not", "in"]) {
     builder[method] = vi.fn(() => builder);
   }
   builder.then = (resolve: (v: typeof result) => void) => Promise.resolve(result).then(resolve);
@@ -40,6 +40,7 @@ function makeFakeSupabase({
   myNods = [] as { article_id: string }[],
   profiles = [] as { id: string; display_name: string }[],
   dismissedRows = [] as { article_id: string }[],
+  savedRows = [] as { article_id: string }[],
   stateRows = [] as { article_id: string; saved: boolean; read: boolean; dismissed: boolean }[],
 } = {}) {
   const articlesResult = { data: articlesError ? null : articles, error: articlesError };
@@ -59,12 +60,16 @@ function makeFakeSupabase({
         return { select: () => ({ in: () => Promise.resolve({ data: profiles, error: null }) }) };
       }
       if (table === "article_state") {
-        // Same `.eq()` first hop serves both the dismissed-exclusion
-        // pre-query (.eq().eq()) and the per-page state merge (.eq().in()).
+        // Same `.eq()` first hop serves three different second hops: the
+        // dismissed-exclusion pre-query (.eq("dismissed",true)), the
+        // saved-only pre-query (.eq("saved",true)), and the per-page state
+        // merge (.eq("user_id",...).in(...)) — disambiguate the two .eq().eq()
+        // shapes by which column the second .eq() names.
         return {
           select: () => ({
             eq: () => ({
-              eq: () => Promise.resolve({ data: dismissedRows, error: null }),
+              eq: (column: string) =>
+                Promise.resolve({ data: column === "saved" ? savedRows : dismissedRows, error: null }),
               in: () => Promise.resolve({ data: stateRows, error: null }),
             }),
           }),
@@ -207,6 +212,31 @@ describe("fetchEnrichedArticles", () => {
     const { articles } = await fetchEnrichedArticles(supabase, "me", null, { limit: 24 });
     expect(articles![0]).toMatchObject({ id: "a1", saved: true, read: true, dismissed: false });
     expect(articles![1]).toMatchObject({ id: "a2", saved: false, read: false, dismissed: false });
+  });
+
+  it("savedOnly: returns an empty list without querying articles at all when nothing is saved", async () => {
+    const supabase = makeFakeSupabase({ articles: [article("a1", "user-1")], savedRows: [] });
+    const { articles, nextCursor, error } = await fetchEnrichedArticles(supabase, "me", null, {
+      limit: 24,
+      savedOnly: true,
+    });
+    expect(articles).toEqual([]);
+    expect(nextCursor).toBeNull();
+    expect(error).toBeNull();
+    const from = supabase.from as ReturnType<typeof vi.fn>;
+    expect(from).not.toHaveBeenCalledWith("articles");
+  });
+
+  it("savedOnly: looks up saved article IDs and proceeds to the normal query/enrichment when some exist", async () => {
+    const supabase = makeFakeSupabase({
+      articles: [article("a1", "user-1")],
+      savedRows: [{ article_id: "a1" }],
+      stateRows: [{ article_id: "a1", saved: true, read: false, dismissed: false }],
+    });
+    const { articles, error } = await fetchEnrichedArticles(supabase, "me", null, { limit: 24, savedOnly: true });
+    expect(error).toBeNull();
+    expect(articles).toHaveLength(1);
+    expect(articles![0]).toMatchObject({ id: "a1", saved: true });
   });
 });
 

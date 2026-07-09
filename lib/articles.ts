@@ -48,9 +48,9 @@ export async function fetchEnrichedArticles(
   supabase: SupabaseClient,
   userId: string,
   tag: string | null,
-  opts: { limit: number; cursor?: string | null } = { limit: 24 }
+  opts: { limit: number; cursor?: string | null; savedOnly?: boolean } = { limit: 24 }
 ) {
-  const { limit, cursor } = opts;
+  const { limit, cursor, savedOnly } = opts;
 
   let decoded: { created_at: string; id: string } | null = null;
   if (cursor) {
@@ -72,6 +72,21 @@ export async function fetchEnrichedArticles(
     .eq("dismissed", true);
   const dismissedIds = (dismissedRows ?? []).map((r) => r.article_id as string);
 
+  // "Saved" view: a second bounded lookup, only when requested. Dismissed
+  // still wins over saved (see DECISIONS.md) — a dismissed article
+  // disappears everywhere, including from the Saved view, rather than
+  // needing a second "un-hide" action to find it again.
+  let savedIds: string[] | null = null;
+  if (savedOnly) {
+    const { data: savedRows } = await supabase
+      .from("article_state")
+      .select("article_id")
+      .eq("user_id", userId)
+      .eq("saved", true);
+    savedIds = (savedRows ?? []).map((r) => r.article_id as string);
+    if (savedIds.length === 0) return { articles: [], nextCursor: null, error: null };
+  }
+
   // Order by created_at then id (both descending) so id can break ties
   // between same-timestamp rows — needed for a stable cursor. Fetch one
   // extra row past `limit` purely to know whether a next page exists.
@@ -83,6 +98,7 @@ export async function fetchEnrichedArticles(
     .limit(limit + 1);
 
   if (tag) query = query.contains("tags", [tag]);
+  if (savedIds) query = query.in("id", savedIds);
   if (decoded) {
     query = query.or(
       `created_at.lt.${decoded.created_at},and(created_at.eq.${decoded.created_at},id.lt.${decoded.id})`
