@@ -193,7 +193,7 @@ Tags are normalized to lowercase on insert. Display uses Tailwind's `capitalize`
 
 **Nod counts: a Postgres view (`article_nod_counts`, `supabase/nod-counts-view.sql`), not a JS loop.** `count(*) group by article_id` in Postgres, queried the same way the old raw-`nods` batched query was (`.in("article_id", pageArticleIds)`) — same call shape, pre-aggregated result. Views inherit the base table's RLS for reads but still need an explicit `grant select ... to authenticated`, or the query 42501s. Nod counts stay public (matching existing behavior) since `nods`' own RLS already allows any authenticated user to read.
 
-**Operational note:** `fetchEnrichedArticles` queries this view unconditionally now — the view must exist before this code ships, or `GET /api/articles` (and the server-rendered `/feed` page) breaks for everyone. See the note at the top of `BACKLOG.md`.
+**Operational note:** `fetchEnrichedArticles` queries this view unconditionally — if `article_nod_counts` (or `article_state`, see below) is ever dropped or missing in an environment, `GET /api/articles` and the server-rendered `/feed` page break for everyone, not just the pagination/save-read-dismiss features. Both were created via `supabase/nod-counts-view.sql` / `supabase/article-state-schema.sql` in production on 2026-07-09.
 
 ---
 
