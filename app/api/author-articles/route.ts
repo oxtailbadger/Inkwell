@@ -5,6 +5,7 @@ import { dbErrorResponse } from "@/lib/api-errors";
 // Heuristics live in lib/paywall.ts so they're unit-testable (route files
 // may only export route handlers)
 import { isPaywalled, type RSSItem } from "@/lib/paywall";
+import { logInfo, logWarn, logError } from "@/lib/logger";
 
 const parser = new Parser();
 
@@ -31,14 +32,16 @@ export async function GET() {
 
         // Log what the heuristics filtered so we notice when they misfire
         // (e.g. Substack rewords its paid-teaser text) — check Vercel logs
-        console.log(
-          `[author-articles] ${author.name}: ${feed.items.length} items, ` +
+        logInfo(
+          "author-articles",
+          `${author.name}: ${feed.items.length} items, ` +
             `${paywalled.length} filtered as paywalled` +
             (paywalled.length ? ` (${paywalled.map((i) => i.title).join(" | ")})` : "")
         );
         if (free.length === 0 && feed.items.length > 0) {
-          console.warn(
-            `[author-articles] ${author.name}: every item filtered as paywalled — heuristics likely misfiring`
+          logWarn(
+            "author-articles",
+            `${author.name}: every item filtered as paywalled — heuristics likely misfiring`
           );
         }
 
@@ -57,7 +60,7 @@ export async function GET() {
           articles,
         };
       } catch (err) {
-        console.error(`[author-articles] failed to fetch feed for ${author.name} (${author.rss_url}):`, err);
+        logError("author-articles", `failed to fetch feed for ${author.name} (${author.rss_url})`, err);
         return {
           id: author.id,
           name: author.name,

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { logError } from "@/lib/logger";
 
 // Single source of truth for the article shape the feed consumes:
 // the articles row plus the enrichment added by fetchEnrichedArticles.
@@ -36,7 +37,7 @@ export async function fetchEnrichedArticles(
 
   const { data: articles, error } = await query;
   if (error) {
-    console.error(`[fetchEnrichedArticles] ${error.message}`);
+    logError("fetchEnrichedArticles", error.message);
     return { articles: null, error: "Could not load articles. Please try again." };
   }
 

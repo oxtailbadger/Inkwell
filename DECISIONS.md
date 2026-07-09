@@ -164,3 +164,21 @@ Tags are normalized to lowercase on insert. Display uses Tailwind's `capitalize`
 ## Supabase composite primary key for nods
 
 `nods` table has a composite PK of `(article_id, user_id)`. The toggle endpoint (`app/api/nods/route.ts`) does a SELECT to check for an existing nod, then INSERTs or DELETEs accordingly. There is a benign race if the same user toggles twice concurrently (e.g. double-click), but the composite PK makes the duplicate insert fail harmlessly and the client's optimistic UI reverts.
+
+---
+
+## signInWithOtp uses shouldCreateUser: false
+
+`app/login/page.tsx` passes `shouldCreateUser: false` to `supabase.auth.signInWithOtp`. Access is meant to be allowlist-only (emails added manually in the Supabase dashboard), but without this flag `signInWithOtp` will silently create a brand-new account for any email typed in, entirely dependent on the unversioned "allow new signups" dashboard toggle staying off. This closes the client-side half of that gap; the RLS/allowlist-in-code half is still open (see `BACKLOG.md` — "Enforce the access model in code, not dashboard config").
+
+---
+
+## Env vars are validated at server startup via instrumentation.ts
+
+`instrumentation.ts` (root) exports `register()`, which Next 16 calls once when a new server instance boots (Node and Edge runtimes both — `proxy.ts` runs on Edge). It checks `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` are present and throws a clear error naming the missing var(s) if not. Before this, a missing env var only surfaced as a cryptic crash the first time `process.env.X!` was dereferenced deep inside `lib/supabase/{client,server,middleware}.ts` — now it fails immediately and legibly at boot. If more required env vars are added later (e.g. a custom SMTP key), add them to `REQUIRED_ENV_VARS` in this file rather than adding another bare `!` assertion somewhere.
+
+---
+
+## Structured logging: route handlers log through lib/logger.ts
+
+`lib/logger.ts` exports `logInfo`/`logWarn`/`logError`, thin wrappers around `console.*` that enforce the `[route-name]` prefix convention `fetch-og`/`archive-check`/`author-articles` already used ad hoc. `dbErrorResponse` (`lib/api-errors.ts`) and `fetchEnrichedArticles` (`lib/articles.ts`) also route through it now. This doesn't add a log drain or change what's logged — it's the same Vercel-console-log approach as before, just codified so every server log line is consistently greppable by context. `app/error.tsx`'s client-side `console.error("[app-error]", ...)` is intentionally left alone — it logs to the browser console from a client error boundary, a different concern than server route logging.

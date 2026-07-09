@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { archiveCheckCache } from "@/lib/server-cache";
+import { logInfo, logWarn } from "@/lib/logger";
 
 // archive.today has no official API. `archive.ph/newest/{url}` 302-redirects
 // to the most recent snapshot when one exists, so we read the Location header
@@ -55,10 +56,10 @@ export async function GET(request: NextRequest) {
 
     // 404 = no snapshot; 403/429/200-challenge = likely bot-blocked.
     // Log the status so production behavior is visible in Vercel logs.
-    console.log(`[archive-check] no snapshot for ${url} (status ${res.status})`);
+    logInfo("archive-check", `no snapshot for ${url} (status ${res.status})`);
     return NextResponse.json({ found: false });
   } catch (e) {
-    console.warn(`[archive-check] lookup failed for ${url}:`, e);
+    logWarn("archive-check", `lookup failed for ${url}`, e);
     return NextResponse.json({ found: false });
   }
 }

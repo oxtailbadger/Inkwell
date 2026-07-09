@@ -26,18 +26,13 @@ Findings from the full acquisition-style code review (2026-07-07, full details i
 
 ### Launch blockers — do before any public exposure
 
-- [ ] **Enforce the access model in code, not dashboard config** — `signInWithOtp` in `app/login/page.tsx` doesn't pass `shouldCreateUser: false`, and every RLS read policy is `using (true)` for any authenticated user. Privacy currently depends entirely on the unversioned "allow new signups" Supabase dashboard toggle. Fix: allowlist table checked by RLS, or the invite flow (see Deferred), or at minimum `shouldCreateUser: false` + document the dashboard dependency.
+- [ ] **Enforce the access model in code, not dashboard config** — every RLS read policy is `using (true)` for any authenticated user, so privacy still depends partly on the unversioned "allow new signups" Supabase dashboard toggle. `signInWithOtp` now passes `shouldCreateUser: false` (2026-07-09, see DECISIONS.md), which closes the client-side half; the remaining fix is an allowlist table checked by RLS, or the invite flow (see Deferred).
 - [ ] **Pagination + DB-side nod counts** — `lib/articles.ts` fetches every article ever posted, then all nods, and aggregates in JS (O(articles × nods) per request). Add limit/cursor pagination to GET /api/articles and move nod counting into Postgres (view or `count(*) group by article_id` RPC). FeedClient needs a "load more" affordance.
 - [ ] **Custom SMTP before launch** — auth emails ride Supabase's built-in dev-only sender (a few emails/hour). Set up Resend or Postmark with SPF/DKIM on a real domain; also unblocks the weekly digest feature.
 
 ### Medium priority
 
-- [ ] **Validate env vars at startup** — `process.env.X!` non-null assertions crash cryptically when a var is missing. Add a boot-time check with a clear message. (`.env.example` already exists as of the README rewrite.)
 - [ ] **Adopt DB migrations** — the four `supabase/*.sql` files are run-by-hand snapshots with implicit ordering; production drift is unverifiable. Move to Supabase CLI migrations or a single canonical dumped schema.
-
-### Polish
-
-- [ ] **Structured logging** — codify the `[route-name]` log-prefix convention that fetch-og/archive-check/author-articles already follow; consider a log drain when traffic warrants.
 
 ---
 

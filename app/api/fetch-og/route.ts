@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { fetchOgCache } from "@/lib/server-cache";
+import { logError } from "@/lib/logger";
 
 // 10 previews/minute per user: generous for a human clicking Preview,
 // tight enough that a runaway script can't burn the Microlink free-tier
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     const json = await res.json();
 
     if (json.status !== "success") {
-      console.error(`[fetch-og] Microlink failed for ${url}: ${json.code ?? ""} ${json.message ?? json.status}`);
+      logError("fetch-og", `Microlink failed for ${url}: ${json.code ?? ""} ${json.message ?? json.status}`);
       const needsManual = json.code === "EPROXYNEEDED";
       const body = { error: "Could not fetch metadata", manual: needsManual };
       // EPROXYNEEDED is a stable antibot classification (NYT/WSJ always hit
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
     fetchOgCache.set(url, { status: 200, body });
     return NextResponse.json(body);
   } catch (e) {
-    console.error("[fetch-og] Error:", e);
+    logError("fetch-og", "Error", e);
     return NextResponse.json({ error: "Could not fetch metadata" }, { status: 422 });
   }
 }

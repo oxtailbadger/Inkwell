@@ -16,6 +16,8 @@ News article sharing app for a small friend group (~10 users).
 - `lib/url.ts` — `getHostname()`, the single shared URL-hostname parser (ArticleCard, AuthorFeed)
 - `lib/rate-limit.ts` / `lib/server-cache.ts` — in-memory per-user rate limiting + TTL caches for fetch-og/archive-check (per-instance by design, see DECISIONS.md)
 - `lib/paywall.ts` — RSS paywall heuristics (extracted from author-articles route for testability)
+- `lib/logger.ts` — `logInfo`/`logWarn`/`logError`, enforces the `[route-name]` log-prefix convention; route through this instead of calling `console.*` directly
+- `instrumentation.ts` — validates required env vars at server boot (Next's `register()` hook), fails fast with a clear message instead of a cryptic `process.env.X!` crash
 - `.github/workflows/ci.yml` — typecheck + tests + build on push/PR
 - `app/api/articles/route.ts` — GET/POST/DELETE articles
 - `app/api/nods/route.ts` — toggle nod (upvote) on an article

@@ -43,7 +43,13 @@ export default function LoginPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/api/auth/callback` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+        // Access is by allowlist (emails added manually in Supabase), not
+        // open signup — don't let signInWithOtp silently create new users
+        // if the dashboard's "allow new signups" toggle is ever left on.
+        shouldCreateUser: false,
+      },
     });
 
     if (error) {
