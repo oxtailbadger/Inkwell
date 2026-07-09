@@ -124,7 +124,7 @@ export default function FeedClient({
             <QuillIcon className="w-6 h-6" />
             <h1 className="text-xl font-bold text-ink tracking-[-0.01em]">Inkwell</h1>
             <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block" aria-hidden="true" />
-            <span className="text-xs font-display text-muted-2 hidden sm:block ml-1">A place to share ideas</span>
+            <span className="text-sm font-display text-muted-2 hidden sm:block ml-1">A place to share ideas</span>
           </div>
           <div className="flex items-center gap-2.5">
             <span className="text-sm text-muted hidden sm:block">{userEmail}</span>
@@ -200,7 +200,7 @@ export default function FeedClient({
               </div>
             )}
 
-            <h2 className="text-xs font-display font-semibold uppercase tracking-widest text-muted">Articles from your friends</h2>
+            <h2 className="inline-block text-sm font-display font-semibold uppercase tracking-widest text-accent border-b-2 border-accent pb-1">Articles from your friends</h2>
 
             {feedError && (
               <div className="rounded-control bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">

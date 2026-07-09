@@ -93,7 +93,7 @@ export function AuthorFeed() {
   if (failed) {
     return (
       <div className="space-y-4">
-        <h2 className="text-xs font-display font-semibold uppercase tracking-widest text-muted">From the Authors</h2>
+        <h2 className="inline-block text-sm font-display font-semibold uppercase tracking-widest text-accent border-b-2 border-accent pb-1">From the Authors</h2>
         <p className="text-sm text-muted">Couldn&apos;t load author feeds right now — try refreshing.</p>
       </div>
     );

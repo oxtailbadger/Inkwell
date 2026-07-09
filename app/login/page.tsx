@@ -63,7 +63,7 @@ export default function LoginPage() {
             <QuillIcon className="w-16 h-16" />
           </div>
           <h1 className="text-2xl font-bold tracking-[-0.01em] text-ink">Inkwell</h1>
-          <p className="text-xs font-display text-muted-2 mt-1 text-center">
+          <p className="text-sm font-display text-muted-2 mt-1 text-center">
             Articles worth reading, shared by friends.
           </p>
         </div>

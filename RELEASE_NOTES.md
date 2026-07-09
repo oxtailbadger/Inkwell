@@ -4,6 +4,22 @@ What's new in Inkwell, in plain language. A new entry is added with each release
 
 ---
 
+## July 8, 2026 *(pending — draft for review)*
+
+### 🖋️ Broadsheet: a new editorial look
+
+Inkwell's amber-and-ivory look has been retired in favor of "Broadsheet" — a newsroom-inspired palette of deep green, paper, and ink. Article cards, the Authors section, the Share form, and the whole app shell (sidebar, header, tag pills) have all been redesigned around it, with a new typeface pairing (Work Sans for everything you read and click, Cormorant Garamond reserved for small-caps labels) and a slightly quieter, flatter card style — no drop shadows, just clean hairline borders.
+
+### 🌙 Real dark mode
+
+There's a new toggle in the header to switch between light and dark. Unlike a browser/OS-driven dark mode, this one remembers your choice — flip it once and every page, including sign-in, honors it from then on.
+
+### ✏️ Sign-in, error, and "page not found" screens updated
+
+The sign-in page and the error/not-found screens you'd only see if something goes sideways now match the new Broadsheet look and green accent color, instead of standing out as leftover amber-themed pages.
+
+---
+
 ## July 7, 2026
 
 ### ✨ A fresh coat of ink
