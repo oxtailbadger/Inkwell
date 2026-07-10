@@ -46,7 +46,7 @@ News article sharing app for a small friend group (~10 users).
 - `supabase/profiles-schema.sql` — profiles table (display names) + signup trigger + backfill
 - `supabase/feedback-schema.sql` — feedback table (insert-only RLS, no select policy — see DECISIONS.md)
 
-See also: `DECISIONS.md` (non-obvious choices and gotchas), `BACKLOG.md` (prioritized todo).
+See also: `DECISIONS.md` (non-obvious choices and gotchas), `BACKLOG.md` (prioritized todo), `MULTI_COMMUNITY.md` (exploratory design notes on scaling past one community).
 
 ## Conventions
 - Tags stored lowercase, displayed with `capitalize` CSS
