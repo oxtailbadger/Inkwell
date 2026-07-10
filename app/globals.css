@@ -18,6 +18,13 @@
   --tag-border: rgba(23, 19, 15, 0.16);
   --tag-fg: rgba(23, 19, 15, .65);
   --placeholder-bg: rgba(23, 19, 15, 0.08);
+  /* Destructive/error color. The handoff specifies a single literal
+     #a13f2e, but that reads poorly on dark backgrounds — tokenized with a
+     lighter dark-mode variant instead (same intent-over-literal call as
+     the toast, see DECISIONS.md). */
+  --danger: #a13f2e;
+  --danger-tint: rgba(161, 63, 46, 0.08);
+  --danger-border: rgba(161, 63, 46, 0.35);
 }
 
 [data-theme="dark"] {
@@ -34,6 +41,9 @@
   --tag-border: rgba(244, 240, 232, 0.18);
   --tag-fg: rgba(244, 240, 232, .68);
   --placeholder-bg: rgba(244, 240, 232, 0.07);
+  --danger: #e0917c;
+  --danger-tint: rgba(224, 145, 124, 0.12);
+  --danger-border: rgba(224, 145, 124, 0.4);
 }
 
 @theme inline {
@@ -50,6 +60,9 @@
   --color-tag-border: var(--tag-border);
   --color-tag-fg: var(--tag-fg);
   --color-placeholder-bg: var(--placeholder-bg);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+  --color-danger-border: var(--danger-border);
   --font-sans: var(--font-sans);
   --font-display: var(--font-display);
 }

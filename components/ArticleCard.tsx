@@ -38,6 +38,21 @@ export function ArticleCard({
   const [saved, setSaved] = useState(article.saved);
   const [read, setRead] = useState(article.read);
   const menuRef = useRef<HTMLDivElement>(null);
+  const kebabRef = useRef<HTMLButtonElement>(null);
+
+  // Local state is an optimistic overlay between refetches; grid items keep
+  // their key across refetches, so useState initial values alone go stale.
+  // These only fire when a refetch actually delivers different values —
+  // an in-flight optimistic toggle isn't clobbered, because a successful
+  // toggle never changes the prop until the next fetch.
+  useEffect(() => {
+    setSaved(article.saved);
+    setRead(article.read);
+  }, [article.saved, article.read]);
+  useEffect(() => {
+    setNodCount(article.nod_count);
+    setHasNodded(article.user_has_nodded);
+  }, [article.nod_count, article.user_has_nodded]);
 
   const isOwner = article.submitted_by === currentUserId;
   const domain = getHostname(article.url) ?? "";
@@ -94,14 +109,19 @@ export function ArticleCard({
     }
   }
 
-  // Close on outside click / Escape — only listens while this card's menu is open
+  // Close on outside click / Escape — only listens while this card's menu is
+  // open. Escape hands focus back to the kebab button so keyboard users
+  // aren't dropped at the document root.
   useEffect(() => {
     if (!menuOpen) return;
     function onPointerDown(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) onCloseMenu();
     }
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onCloseMenu();
+      if (e.key === "Escape") {
+        onCloseMenu();
+        kebabRef.current?.focus();
+      }
     }
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -110,6 +130,25 @@ export function ArticleCard({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [menuOpen, onCloseMenu]);
+
+  // Focus the first menu item when the menu opens (keyboard users arrive
+  // via Enter/Space on the kebab and shouldn't have to Tab into the menu)
+  useEffect(() => {
+    if (menuOpen) {
+      menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+    }
+  }, [menuOpen]);
+
+  // ArrowDown/ArrowUp cycle focus through the menu items
+  function onMenuKeyDown(e: React.KeyboardEvent) {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const items = [...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])];
+    if (items.length === 0) return;
+    const idx = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next = e.key === "ArrowDown" ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length;
+    items[next].focus();
+  }
 
   return (
     <div className="bg-card rounded-card border border-card-border overflow-hidden flex flex-col">
@@ -134,16 +173,24 @@ export function ArticleCard({
             it uses one-off colors rather than paper/ink tokens */}
         <div ref={menuRef} className="absolute top-2.5 right-2.5">
           <button
+            ref={kebabRef}
             onClick={onToggleMenu}
             aria-label="Article actions"
+            aria-haspopup="menu"
             aria-expanded={menuOpen}
             className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center text-[16px] leading-none text-[#fffdfa] bg-[rgba(23,19,15,.55)] border border-[rgba(255,253,250,.5)] backdrop-blur-[3px]"
           >
             ⋮
           </button>
           {menuOpen && (
-            <div className="absolute top-[calc(100%+4px)] right-0 min-w-[160px] bg-card border border-card-border rounded-[10px] overflow-hidden shadow-[0_6px_18px_rgba(23,19,15,.14)] z-10">
+            <div
+              role="menu"
+              aria-label="Article actions"
+              onKeyDown={onMenuKeyDown}
+              className="absolute top-[calc(100%+4px)] right-0 min-w-[160px] bg-card border border-card-border rounded-[10px] overflow-hidden shadow-[0_6px_18px_rgba(23,19,15,.14)] z-10"
+            >
               <button
+                role="menuitem"
                 onClick={toggleSaved}
                 className={`w-full text-left flex items-center gap-2 px-3.5 py-2.5 text-[13px] font-medium border-b border-card-border transition-colors ${
                   saved ? "bg-accent-tint text-accent" : "text-ink hover:bg-tag-bg"
@@ -152,6 +199,7 @@ export function ArticleCard({
                 🔖 {saved ? "Saved" : "Save"}
               </button>
               <button
+                role="menuitem"
                 onClick={toggleRead}
                 className={`w-full text-left flex items-center gap-2 px-3.5 py-2.5 text-[13px] font-medium border-b border-card-border transition-colors ${
                   read ? "bg-tag-bg text-ink" : "text-ink hover:bg-tag-bg"
@@ -160,8 +208,9 @@ export function ArticleCard({
                 ✓ {read ? "Mark unread" : "Mark read"}
               </button>
               <button
+                role="menuitem"
                 onClick={() => onDismiss(article.id, article.title ?? article.url)}
-                className="w-full text-left flex items-center gap-2 px-3.5 py-2.5 text-[13px] font-medium text-[#a13f2e] hover:bg-tag-bg transition-colors"
+                className="w-full text-left flex items-center gap-2 px-3.5 py-2.5 text-[13px] font-medium text-danger hover:bg-tag-bg transition-colors"
               >
                 ✕ Dismiss
               </button>
@@ -202,7 +251,7 @@ export function ArticleCard({
           {isOwner && (
             <button
               onClick={() => onDelete(article.id)}
-              className="flex-none text-xs text-red-500 hover:text-red-600"
+              className="flex-none text-xs text-danger hover:opacity-75 transition-opacity"
             >
               Remove
             </button>

@@ -25,6 +25,8 @@ export default function FeedClient({
   initialNextCursor,
   initialTag,
   initialSavedOnly,
+  initialAllTags,
+  initialError,
 }: {
   userEmail: string;
   userId: string;
@@ -32,6 +34,8 @@ export default function FeedClient({
   initialNextCursor: string | null;
   initialTag: string | null;
   initialSavedOnly: boolean;
+  initialAllTags: string[];
+  initialError: string | null;
 }) {
   const searchParams = useSearchParams();
   // Tag + saved filters live in the URL so filtered views are shareable and survive reloads
@@ -49,7 +53,7 @@ export default function FeedClient({
   const [loadingMore, setLoadingMore] = useState(false);
   const [activeSection, setActiveSection] = useState("articles");
   const [loading, setLoading] = useState(false);
-  const [feedError, setFeedError] = useState<string | null>(null);
+  const [feedError, setFeedError] = useState<string | null>(initialError);
   // The first render is already populated by the server; only refetch after
   // that when the tag changes or a submission triggers a reload
   const hydratedFromServer = useRef(true);
@@ -62,6 +66,13 @@ export default function FeedClient({
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const dismissTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Clear pending toast timers on unmount so they can't fire setState
+  // against an unmounted component
+  useEffect(() => {
+    const timers = dismissTimers.current;
+    return () => timers.forEach((t) => clearTimeout(t));
+  }, []);
 
   // Full-list replace (initial load, tag change, post-submit refresh) — not
   // to be confused with loadMore() below, which appends instead of replacing
@@ -175,20 +186,26 @@ export default function FeedClient({
     // fire on a different serverless instance than the one that handles the
     // eventual Undo click, or be lost on a cold start. The toast's timer
     // only controls the UI window for showing Undo, not whether the write
-    // already happened.
+    // already happened. fetch only rejects on network errors, so a server
+    // rejection (non-OK status) has to be thrown explicitly or the revert
+    // below never runs.
     fetch("/api/article-state", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ article_id: id, action: "dismiss" }),
-    }).catch(() => {
-      // Revert the collapse if the write failed
-      setCollapsedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error();
+      })
+      .catch(() => {
+        // Revert the collapse if the write failed
+        setCollapsedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+        setFeedError("Could not dismiss the article. Please try again.");
       });
-      setFeedError("Could not dismiss the article. Please try again.");
-    });
 
     const toastId = `${id}-${Date.now()}`;
     const timer = setTimeout(() => {
@@ -217,7 +234,11 @@ export default function FeedClient({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ article_id: toast.articleId, action: "undismiss" }),
-    }).catch(() => setFeedError("Could not undo the dismiss. Please try again."));
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error();
+      })
+      .catch(() => setFeedError("Could not undo the dismiss. Please try again."));
   }
 
   async function handleSignOut() {
@@ -226,7 +247,10 @@ export default function FeedClient({
     window.location.href = "/login";
   }
 
-  const allTags = [...new Set(articles.flatMap((a) => a.tags))].sort();
+  // Server-provided full tag list (pagination means the loaded page alone
+  // no longer covers every tag), unioned with tags from currently loaded
+  // articles so a just-submitted article's new tag appears without a reload
+  const allTags = [...new Set([...initialAllTags, ...articles.flatMap((a) => a.tags)])].sort();
 
   return (
     <div className="min-h-screen bg-paper">
@@ -329,7 +353,7 @@ export default function FeedClient({
             <h2 className="inline-block text-sm font-display font-semibold uppercase tracking-widest text-accent border-b-2 border-accent pb-1">Articles from your friends</h2>
 
             {feedError && (
-              <div className="rounded-control bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+              <div className="rounded-control bg-danger-tint border border-danger-border px-4 py-3 text-sm text-danger">
                 {feedError}
               </div>
             )}

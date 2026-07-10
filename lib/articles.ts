@@ -30,14 +30,36 @@ export function encodeCursor(createdAt: string, id: string): string {
   return Buffer.from(JSON.stringify({ created_at: createdAt, id })).toString("base64");
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ISO_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$/;
+
 export function decodeCursor(cursor: string): { created_at: string; id: string } {
   try {
     const parsed = JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
+    // Shape validation isn't enough: both values get interpolated into a
+    // PostgREST .or() filter string below, so a hand-crafted cursor could
+    // otherwise inject filter syntax. The API is the trust boundary (see
+    // lib/validate.ts) — require a real UUID and a real ISO timestamp.
     if (typeof parsed.created_at !== "string" || typeof parsed.id !== "string") throw new Error();
+    if (!UUID_RE.test(parsed.id) || !ISO_TIMESTAMP_RE.test(parsed.created_at)) throw new Error();
     return parsed;
   } catch {
     throw new Error("Invalid pagination cursor");
   }
+}
+
+// All distinct tags across every article, for the feed's tag-filter bar.
+// Pagination made deriving this from the loaded page wrong (tags on older
+// articles silently vanished from the bar), so it's one dedicated query —
+// tags column only, cheap even against the whole table. Failure degrades
+// to an empty bar rather than breaking the feed.
+export async function fetchAllTags(supabase: SupabaseClient): Promise<string[]> {
+  const { data, error } = await supabase.from("articles").select("tags");
+  if (error) {
+    logError("fetchAllTags", error.message);
+    return [];
+  }
+  return [...new Set((data ?? []).flatMap((row) => (row.tags as string[]) ?? []))].sort();
 }
 
 // Shared by GET /api/articles and the server-rendered feed page.

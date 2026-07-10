@@ -83,8 +83,11 @@ describe("PATCH /api/article-state", () => {
 
       const res = await PATCH(makeRequest({ article_id: "article-abc", action }));
       expect(res.status).toBe(200);
+      // updated_at must be in every upsert payload — a partial upsert
+      // doesn't touch columns it omits, so the DB default alone would
+      // leave it frozen at first-insert time
       expect(supabase._mocks.upsert).toHaveBeenCalledWith(
-        { article_id: "article-abc", user_id: mockUser.id, [column]: value },
+        { article_id: "article-abc", user_id: mockUser.id, [column]: value, updated_at: expect.any(String) },
         { onConflict: "article_id,user_id" }
       );
     });

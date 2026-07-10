@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fetchEnrichedArticles, encodeCursor, decodeCursor } from "@/lib/articles";
+import { fetchAllTags, fetchEnrichedArticles, encodeCursor, decodeCursor } from "@/lib/articles";
 
 const article = (id: string, submitted_by: string, created_at = "2026-07-01T00:00:00Z") => ({
   id,
@@ -150,20 +150,24 @@ describe("fetchEnrichedArticles", () => {
   it("returns a nextCursor and trims the extra row when more pages exist", async () => {
     // limit 2 → the function requests limit+1 (3); the fake ignores the
     // actual .limit() call and just hands back whatever we seed here, which
-    // is exactly how a real "3 rows came back for a limit-of-2 page" response looks
+    // is exactly how a real "3 rows came back for a limit-of-2 page" response
+    // looks. Real UUIDs because decodeCursor validates id shape.
+    const u1 = "11111111-1111-4111-8111-111111111111";
+    const u2 = "22222222-2222-4222-8222-222222222222";
+    const u3 = "33333333-3333-4333-8333-333333333333";
     const supabase = makeFakeSupabase({
       articles: [
-        article("a1", "user-1", "2026-07-03T00:00:00Z"),
-        article("a2", "user-1", "2026-07-02T00:00:00Z"),
-        article("a3", "user-1", "2026-07-01T00:00:00Z"),
+        article(u1, "user-1", "2026-07-03T00:00:00Z"),
+        article(u2, "user-1", "2026-07-02T00:00:00Z"),
+        article(u3, "user-1", "2026-07-01T00:00:00Z"),
       ],
     });
     const { articles, nextCursor, error } = await fetchEnrichedArticles(supabase, "me", null, { limit: 2 });
     expect(error).toBeNull();
     expect(articles).toHaveLength(2);
-    expect(articles!.map((a) => a.id)).toEqual(["a1", "a2"]);
+    expect(articles!.map((a) => a.id)).toEqual([u1, u2]);
     expect(nextCursor).not.toBeNull();
-    expect(decodeCursor(nextCursor!)).toEqual({ created_at: "2026-07-02T00:00:00Z", id: "a2" });
+    expect(decodeCursor(nextCursor!)).toEqual({ created_at: "2026-07-02T00:00:00Z", id: u2 });
   });
 
   it("returns nextCursor:null when the page isn't full (no more pages)", async () => {
@@ -241,12 +245,50 @@ describe("fetchEnrichedArticles", () => {
 });
 
 describe("encodeCursor / decodeCursor", () => {
+  const uuid = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+
   it("round-trips created_at and id", () => {
-    const cursor = encodeCursor("2026-07-01T00:00:00Z", "abc-123");
-    expect(decodeCursor(cursor)).toEqual({ created_at: "2026-07-01T00:00:00Z", id: "abc-123" });
+    const cursor = encodeCursor("2026-07-01T00:00:00Z", uuid);
+    expect(decodeCursor(cursor)).toEqual({ created_at: "2026-07-01T00:00:00Z", id: uuid });
+  });
+
+  it("accepts the timestamp format Supabase actually returns (+00:00 offset, microseconds)", () => {
+    const cursor = encodeCursor("2026-07-09T21:15:00.797047+00:00", uuid);
+    expect(decodeCursor(cursor)).toEqual({ created_at: "2026-07-09T21:15:00.797047+00:00", id: uuid });
   });
 
   it("throws on garbage input", () => {
     expect(() => decodeCursor("!!!not-base64!!!")).toThrow();
+  });
+
+  // Both values get interpolated into a PostgREST .or() filter string, so a
+  // well-formed base64 cursor with filter syntax inside must still be rejected
+  it("rejects a structurally valid cursor whose id is not a UUID", () => {
+    const cursor = encodeCursor("2026-07-01T00:00:00Z", "x,id.not.is.null");
+    expect(() => decodeCursor(cursor)).toThrow();
+  });
+
+  it("rejects a structurally valid cursor whose created_at is not an ISO timestamp", () => {
+    const cursor = encodeCursor("x,and(created_at.eq.1)", uuid);
+    expect(() => decodeCursor(cursor)).toThrow();
+  });
+});
+
+describe("fetchAllTags", () => {
+  it("flattens, dedupes, and sorts tags across all articles", async () => {
+    const supabase = makeFakeSupabase({
+      articles: [
+        { tags: ["tech", "politics"] },
+        { tags: ["tech", "climate"] },
+        { tags: [] },
+        { tags: null },
+      ],
+    });
+    expect(await fetchAllTags(supabase)).toEqual(["climate", "politics", "tech"]);
+  });
+
+  it("degrades to an empty list (not a throw) on a DB error", async () => {
+    const supabase = makeFakeSupabase({ articlesError: { message: "boom" } });
+    expect(await fetchAllTags(supabase)).toEqual([]);
   });
 });

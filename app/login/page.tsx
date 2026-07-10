@@ -98,7 +98,7 @@ export default function LoginPage() {
                 placeholder="123456"
                 className="w-full rounded-control border border-card-border bg-card px-3.5 py-2.5 text-sm text-ink text-center tracking-[0.3em] font-medium placeholder:text-muted-2 focus:outline-none focus:border-accent"
               />
-              {error && <p className="text-sm text-red-600">{error}</p>}
+              {error && <p className="text-sm text-danger">{error}</p>}
               <button
                 type="submit"
                 disabled={verifying || !code.trim()}
@@ -124,7 +124,7 @@ export default function LoginPage() {
                 className="w-full rounded-control border border-card-border bg-card px-3.5 py-2.5 text-sm text-ink placeholder:text-muted-2 focus:outline-none focus:border-accent"
               />
             </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-danger">{error}</p>}
             <button
               type="submit"
               disabled={loading}

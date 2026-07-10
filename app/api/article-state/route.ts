@@ -27,11 +27,13 @@ export async function PATCH(request: NextRequest) {
 
   // Upsert: most articles won't have a state row until first touched. Only
   // the column named by `action` is written — the other two flags keep
-  // their existing value (or default false on first insert).
+  // their existing value (or default false on first insert). updated_at is
+  // set explicitly because a partial upsert only writes the columns in the
+  // payload; the column default fires on first insert only.
   const { data, error } = await supabase
     .from("article_state")
     .upsert(
-      { article_id, user_id: user.id, [mapped.column]: mapped.value },
+      { article_id, user_id: user.id, [mapped.column]: mapped.value, updated_at: new Date().toISOString() },
       { onConflict: "article_id,user_id" }
     )
     .select("article_id, saved, read, dismissed")

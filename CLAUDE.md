@@ -10,7 +10,7 @@ News article sharing app for a small friend group (~10 users).
 
 ## Key files
 - `app/feed/FeedClient.tsx` — main feed page (sidebar, articles grid, author feed); first page is server-rendered via page.tsx, tag filter lives in ?tag= URL param
-- `lib/articles.ts` — shared article fetch + enrichment (cursor pagination, nod counts, submitter names, per-user saved/read/dismissed state), used by both the API route and the server page
+- `lib/articles.ts` — shared article fetch + enrichment (cursor pagination, nod counts, submitter names, per-user saved/read/dismissed state) plus `fetchAllTags` for the tag-filter bar; used by both the API route and the server page
 - `lib/validate.ts` — server-side input validation (http/https-only URLs, length caps); wire new writable fields through this
 - `lib/api-errors.ts` — `dbErrorResponse` maps DB errors to safe client messages; use for any route touching the database
 - `lib/url.ts` — `getHostname()`, the single shared URL-hostname parser (ArticleCard, AuthorFeed)
@@ -24,7 +24,7 @@ News article sharing app for a small friend group (~10 users).
 - `app/api/article-state/route.ts` — PATCH per-user save/read/dismiss state, action-discriminated body (see DECISIONS.md)
 - `app/api/fetch-og/route.ts` — Microlink metadata fetch with manual fallback
 - `app/api/archive-check/route.ts` — best-effort archive.today snapshot lookup (see DECISIONS.md)
-- `app/api/author-articles/route.ts` — RSS feed for Ben Thompson + Derek Thompson
+- `app/api/author-articles/route.ts` — RSS feeds for the curated authors (driven by the `authors` table, no code change to add one)
 - `components/ArticleCard.tsx` — article card with Nods button + Save/Read/Dismiss kebab menu
 - `components/SubmitArticle.tsx` — share form with preset tags + archive.is field
 - `components/AuthorFeed.tsx` — author RSS section
@@ -45,7 +45,7 @@ See also: `DECISIONS.md` (non-obvious choices and gotchas), `BACKLOG.md` (priori
 
 ## Conventions
 - Tags stored lowercase, displayed with `capitalize` CSS
-- "Broadsheet" design system (2026-07-08): editorial/newsroom palette (paper/ink/accent), no shadows, hairline borders. Never hardcode a Tailwind gray/white/amber class in the authenticated app shell — use the semantic `bg-paper`/`text-ink`/`border-card-border`/etc. utilities (backed by CSS variables in `app/globals.css`) so dark mode keeps working. See DECISIONS.md before adding new tokens.
+- "Broadsheet" design system (2026-07-08): editorial/newsroom palette (paper/ink/accent), no shadows, hairline borders. Never hardcode a Tailwind gray/white/amber/red class in the authenticated app shell — use the semantic `bg-paper`/`text-ink`/`border-card-border`/etc. utilities (backed by CSS variables in `app/globals.css`) so dark mode keeps working; destructive/error styling uses `text-danger`/`bg-danger-tint`/`border-danger-border`. See DECISIONS.md before adding new tokens.
 - Font roles: Work Sans (`--font-sans`, default) for titles/body/buttons; Cormorant Garamond (`font-display`) *only* for small-caps meta/eyebrow text (site names, section labels, tags, dates) — this inverted from the app's earlier font pairing, see DECISIONS.md.
 - Dark mode is explicit (`data-theme` attribute + localStorage via `ThemeToggle.tsx`), not `prefers-color-scheme`.
 - `GET /api/articles` is cursor-paginated (`{ articles, nextCursor }`), not a raw array — see DECISIONS.md before changing the query shape in `fetchEnrichedArticles`. Dismissed articles are excluded server-side, not client-filtered. `?saved=1` filters to saved-only and ANDs with `?tag=` (independent toggles, not mutually exclusive) — see DECISIONS.md.
