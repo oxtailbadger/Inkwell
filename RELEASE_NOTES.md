@@ -22,6 +22,10 @@ Every article card now has a **⋮** menu: **Save** it for later, **mark it read
 
 Click the new circular avatar next to your email to get to your **Profile** page: set your display name, pick light or dark mode (remembered per device), and check the new FAQ — including how to share articles from your phone's share sheet on Android, or a one-tap Shortcut on iPhone.
 
+### 💬 Send feedback
+
+There's a new **Send feedback** box at the bottom of your Profile page — found a bug, want an author added, have an idea? Type it in and hit send. It comes straight to me.
+
 ### ⚡ Faster loading
 
 The feed now loads in smaller batches with a **Load more** button, instead of fetching every article ever shared at once. Nod counts load faster behind the scenes too.

@@ -31,6 +31,11 @@ export default function ProfileClient({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  const [feedback, setFeedback] = useState("");
+  const [sendingFeedback, setSendingFeedback] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [feedbackSent, setFeedbackSent] = useState(false);
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -53,6 +58,29 @@ export default function ProfileClient({
       setDisplayName(savedName);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSendFeedback(e: React.FormEvent) {
+    e.preventDefault();
+    setSendingFeedback(true);
+    setFeedbackError(null);
+    setFeedbackSent(false);
+
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: feedback }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not send your feedback");
+      setFeedback("");
+      setFeedbackSent(true);
+    } catch (e) {
+      setFeedbackError(e instanceof Error ? e.message : "Could not send your feedback");
+    } finally {
+      setSendingFeedback(false);
     }
   }
 
@@ -154,6 +182,44 @@ export default function ProfileClient({
             </details>
           ))}
         </div>
+
+        {/* Feedback */}
+        <form
+          onSubmit={handleSendFeedback}
+          className="space-y-3 pt-7 mt-7 border-t border-card-border"
+        >
+          <div>
+            <label htmlFor="feedback" className="block text-sm font-medium text-ink">
+              Send feedback
+            </label>
+            <p className="text-sm text-muted mt-1">
+              Found a bug or have an idea? Tell me — it goes straight to me.
+            </p>
+          </div>
+          <textarea
+            id="feedback"
+            rows={4}
+            maxLength={4000}
+            value={feedback}
+            onChange={(e) => {
+              setFeedback(e.target.value);
+              setFeedbackSent(false);
+            }}
+            placeholder="What's on your mind?"
+            className="w-full rounded-control border border-card-border bg-card px-3.5 py-2.5 text-sm text-ink placeholder:text-muted-2 focus:outline-none focus:border-accent resize-y"
+          />
+          {feedbackError && <p className="text-sm text-danger">{feedbackError}</p>}
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={sendingFeedback || !feedback.trim()}
+              className="bg-accent text-card rounded-control px-4 py-2 text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors"
+            >
+              {sendingFeedback ? "Sending…" : "Send feedback"}
+            </button>
+            {feedbackSent && <span className="text-sm text-accent">Thanks — got it!</span>}
+          </div>
+        </form>
 
         <Link
           href="/feed"
