@@ -6,6 +6,7 @@ Items are roughly ordered by priority within each section. Move things between s
 
 ## Features
 
+- [ ] **Trending articles panel** — pull in what's popular outside the friend group (e.g. Hacker News top stories). Consider feeds or an algorithm if possible.
 - [ ] **Add more curated authors** — the `authors` table in Supabase drives the feed. Easy to add new RSS feeds without a code deploy. Candidates: Ezra Klein, Matt Levine (Bloomberg), The Economist briefing.
 - [ ] **Article comments / reactions** — a lightweight text reply thread per article so friends can discuss without a group chat. `article_state` (per-user, per-article, RLS scoped to the owning user — see DECISIONS.md) is a ready-made template for a `comments` table's RLS, now that it exists.
 - [ ] **Weekly digest email** — a cron-triggered email (Resend or Postmark) with the top-nodded articles from the past 7 days.
@@ -44,7 +45,6 @@ Findings from the full acquisition-style code review (2026-07-07, full details i
 
 ## Deferred / someday
 
-- [ ] **Trending articles panel** — pull in what's popular outside the friend group (e.g. Hacker News top stories). Considered and deferred — the group didn't want noise from outside.
 - [ ] **Invite flow** — currently access is by manually adding emails in Supabase. A simple invite-by-email flow would make onboarding new friends easier.
 - [ ] **Account-backed theme preference** — theme is per-device (`localStorage`) by design (see DECISIONS.md); it doesn't follow a user to another browser/device. If cross-device consistency is wanted later, add a `theme` column to `profiles`, load it server-side in `layout.tsx`/the profile page to apply before paint, and write it through `PATCH /api/profile` alongside the localStorage write (keep localStorage as the pre-paint fast path to avoid a flash). Deferred 2026-07-10 — the one-device-per-friend audience didn't justify the migration + dual source of truth.
 - [ ] **Move saved/read/dismissed filtering into a DB-side anti-join** — `fetchEnrichedArticles`'s `fetchStateIds` helper pre-fetches the caller's full ID list for whichever of dismissed/saved/read is active (dismissed always, for the default exclusion) on every feed request and ships it back as a URL filter. Unbounded over time; fine at friend-group scale (see DECISIONS.md), but a public launch should replace these lookups with a view or RPC that joins `article_state` in Postgres. If this becomes a view, create it `with (security_invoker = true)` — `article_state` is per-user private, so a DEFINER-context view here would leak every user's saved/read/dismissed rows to any caller (see DECISIONS.md).

@@ -106,10 +106,11 @@ The sidebar active state (`activeSection` in `FeedClient.tsx`) uses a `scroll` e
 
 ## RSS paid article detection
 
-`app/api/author-articles/route.ts` uses a `isPaywalled()` heuristic that covers:
-- **Stratechery** (Ben Thompson): checks for `"Daily Update"` in RSS `<category>` fields
-- **Derek Thompson / Substack**: checks description text for `"thank you for being a paid subscriber"`
+`app/api/author-articles/route.ts` uses a `isPaywalled()` heuristic (in `lib/paywall.ts`) that covers:
+- **Stratechery** (Ben Thompson): paid posts carry `"Daily Update"` / `"This Week in Stratechery"` in RSS `<category>` fields; free weekly essays carry `"Articles"`
+- **Derek Thompson / Substack**: checks description text for `"thank you for being a paid subscriber"` and similar markers
 - **Fallback**: description under 80 characters is treated as paywalled (paid posts often show a truncated teaser)
+- **Free-category exemption** (added 2026-07-10): an explicit free category (`FREE_CATEGORIES`, currently `"Articles"`) overrides *only* the weak <80-char fallback, not the explicit paid signals. This fixed a regression where Stratechery's free weekly essays stopped showing because their RSS teaser snippet dipped under 80 chars and tripped the length fallback. The paid-category and paid-marker checks still run first, so an item tagged both `Articles` and `Daily Update` is still correctly treated as paid.
 
 ---
 

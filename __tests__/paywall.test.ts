@@ -26,6 +26,25 @@ describe("isPaywalled", () => {
     expect(isPaywalled({ contentSnippet: FREE_DESC, categories: ["Weekly Article"] })).toBe(false);
   });
 
+  it("keeps a free 'Articles' post with a short teaser (length fallback must not override the free category)", () => {
+    // Regression: Stratechery's free weekly essays are category "Articles" but
+    // sometimes have a <80-char RSS snippet, which previously hid them.
+    expect(
+      isPaywalled({
+        title: "A Script for Mark Zuckerberg",
+        contentSnippet: "A short teaser under eighty characters.",
+        categories: ["Articles"],
+      })
+    ).toBe(false);
+  });
+
+  it("still flags a paid item even if it also carries a free category", () => {
+    // Explicit paid signals win over the free-category exemption.
+    expect(
+      isPaywalled({ contentSnippet: FREE_DESC, categories: ["Articles", "Daily Update"] })
+    ).toBe(true);
+  });
+
   it("flags Substack paid-subscriber markers in the description", () => {
     expect(
       isPaywalled({

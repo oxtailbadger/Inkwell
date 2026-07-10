@@ -4,7 +4,7 @@ What's new in Inkwell, in plain language. A new entry is added with each release
 
 ---
 
-## July 10, 2026 *(pending — draft for review)*
+## July 10, 2026
 
 ### 🖋️ Broadsheet: a new editorial look
 
