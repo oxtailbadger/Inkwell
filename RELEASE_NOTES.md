@@ -6,18 +6,6 @@ What's new in Inkwell, in plain language. A new entry is added with each release
 
 ## July 9, 2026 *(pending — draft for review)*
 
-### 🔖 Save, mark read, and dismiss articles
-
-Every article card now has a **⋮** menu in the top corner of its image. From there you can **Save** an article for later, **mark it read**, or **dismiss** it if it's not for you — dismissed articles slide out of your feed right away, with an "Undo" option that stays up for a few seconds in case you change your mind. Saved articles get a small "Saved" tag; articles you've read get a quiet dot next to your name so you can tell what you've already gotten to, without cluttering the feed.
-
-### ⚡ Faster loading
-
-The feed now loads in smaller batches with a **Load more** button at the bottom of the page, instead of fetching every article ever shared at once. Nod counts also load faster behind the scenes.
-
----
-
-## July 8, 2026 *(pending — draft for review)*
-
 ### 🖋️ Broadsheet: a new editorial look
 
 Inkwell's amber-and-ivory look has been retired in favor of "Broadsheet" — a newsroom-inspired palette of deep green, paper, and ink. Article cards, the Authors section, the Share form, and the whole app shell (sidebar, header, tag pills) have all been redesigned around it, with a new typeface pairing (Work Sans for everything you read and click, Cormorant Garamond reserved for small-caps labels) and a slightly quieter, flatter card style — no drop shadows, just clean hairline borders.
@@ -29,6 +17,30 @@ There's a new toggle in the header to switch between light and dark. Unlike a br
 ### ✏️ Sign-in, error, and "page not found" screens updated
 
 The sign-in page and the error/not-found screens you'd only see if something goes sideways now match the new Broadsheet look and green accent color, instead of standing out as leftover amber-themed pages.
+
+### 🔖 Save, mark read, and dismiss articles
+
+Every article card now has a **⋮** menu in the top corner of its image. From there you can **Save** an article for later, **mark it read**, or **dismiss** it if it's not for you — dismissed articles slide out of your feed right away, with an "Undo" option that stays up for a few seconds in case you change your mind. Saved articles get a small "Saved" tag; articles you've read get a quiet dot next to your name so you can tell what you've already gotten to, without cluttering the feed.
+
+### 🗂️ A "Saved" view
+
+Saving articles is only half the point — now there's a **🔖 Saved** button above the topic filters that shows just your saved articles. It works together with the topic filters, so "saved articles about tech" is one click away. Your saved list is yours alone; nobody else can see it.
+
+### 👤 A Profile page
+
+There's a new circular avatar next to your email in the header — click it to get to your new **Profile** page. From there you can set your display name (defaults to the username part of your email), choose light or dark mode as a real setting (it remembers your choice everywhere, not just from the header toggle), and check a new FAQ for quick answers, including how to share articles straight from your phone's share sheet on Android, or with a one-tap Shortcut on iPhone.
+
+### ⚡ Faster loading
+
+The feed now loads in smaller batches with a **Load more** button at the bottom of the page, instead of fetching every article ever shared at once. Nod counts also load faster behind the scenes.
+
+### ✒️ Clearer sections
+
+The "Articles from your friends" and "From the Authors" headings are now larger, in the green accent color, with an underline — so it's easier to tell where one section ends and the next begins. The small taglines on the sign-in page and feed header got a slight size bump too.
+
+### 🧰 Fixes and polish
+
+A round of tightening-up after review: the topic filter bar now shows **every** topic ever used, not just topics from recently loaded articles; error messages and the "Remove" button are now readable in dark mode instead of showing up as light-mode red boxes; if a dismiss fails to save (bad connection, server hiccup), the article now comes back with an error message instead of silently reappearing later; and the ⋮ card menu is fully keyboard-navigable — arrow keys move between options, Escape closes it.
 
 ---
 

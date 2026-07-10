@@ -15,15 +15,17 @@ export default async function FeedPage({
   const params = await searchParams;
   const tag = params.tag ?? null;
   const savedOnly = params.saved === "1";
-  const [{ articles, nextCursor, error }, allTags] = await Promise.all([
+  const [{ articles, nextCursor, error }, allTags, { data: profile }] = await Promise.all([
     fetchEnrichedArticles(supabase, user.id, tag, { limit: 24, savedOnly }),
     fetchAllTags(supabase),
+    supabase.from("profiles").select("display_name").eq("id", user.id).single(),
   ]);
 
   return (
     <FeedClient
       userEmail={user.email!}
       userId={user.id}
+      displayName={profile?.display_name ?? user.email!.split("@")[0]}
       initialArticles={articles ?? []}
       initialNextCursor={nextCursor}
       initialTag={tag}

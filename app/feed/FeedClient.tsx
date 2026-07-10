@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { ArticleCard } from "@/components/ArticleCard";
 import { SubmitArticle } from "@/components/SubmitArticle";
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
 export default function FeedClient({
   userEmail,
   userId,
+  displayName,
   initialArticles,
   initialNextCursor,
   initialTag,
@@ -30,6 +32,7 @@ export default function FeedClient({
 }: {
   userEmail: string;
   userId: string;
+  displayName: string;
   initialArticles: Article[];
   initialNextCursor: string | null;
   initialTag: string | null;
@@ -263,7 +266,18 @@ export default function FeedClient({
             <span className="text-sm font-display text-muted-2 hidden sm:block ml-1">A place to share ideas</span>
           </div>
           <div className="flex items-center gap-2.5">
-            <span className="text-sm text-muted hidden sm:block">{userEmail}</span>
+            <Link
+              href="/profile"
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            >
+              <span
+                className="flex-none w-7 h-7 rounded-full bg-ink text-paper flex items-center justify-center text-xs font-semibold"
+                aria-hidden="true"
+              >
+                {displayName.charAt(0).toUpperCase()}
+              </span>
+              <span className="text-sm text-muted hidden sm:block">{userEmail}</span>
+            </Link>
             <ThemeToggle />
             <button
               onClick={handleSignOut}

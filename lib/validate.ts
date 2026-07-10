@@ -11,6 +11,7 @@ const MAX_DESCRIPTION_LENGTH = 2000;
 const MAX_SITE_NAME_LENGTH = 200;
 const MAX_TAGS = 12;
 const MAX_TAG_LENGTH = 40;
+const MAX_DISPLAY_NAME_LENGTH = 60;
 
 // Only http/https may be stored. Rejects javascript:, data:, and anything
 // else that could execute or misbehave when used as an href or image src.
@@ -60,4 +61,5 @@ export const LIMITS = {
   TITLE: MAX_TITLE_LENGTH,
   DESCRIPTION: MAX_DESCRIPTION_LENGTH,
   SITE_NAME: MAX_SITE_NAME_LENGTH,
+  DISPLAY_NAME: MAX_DISPLAY_NAME_LENGTH,
 };

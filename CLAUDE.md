@@ -17,19 +17,22 @@ News article sharing app for a small friend group (~10 users).
 - `lib/rate-limit.ts` / `lib/server-cache.ts` — in-memory per-user rate limiting + TTL caches for fetch-og/archive-check (per-instance by design, see DECISIONS.md)
 - `lib/paywall.ts` — RSS paywall heuristics (extracted from author-articles route for testability)
 - `lib/logger.ts` — `logInfo`/`logWarn`/`logError`, enforces the `[route-name]` log-prefix convention; route through this instead of calling `console.*` directly
+- `lib/useTheme.ts` — shared `{ theme, setTheme }` hook, used by `ThemeToggle` and the profile page's theme selector (see DECISIONS.md)
 - `instrumentation.ts` — validates required env vars at server boot (Next's `register()` hook), fails fast with a clear message instead of a cryptic `process.env.X!` crash
 - `.github/workflows/ci.yml` — typecheck + tests + build on push/PR
 - `app/api/articles/route.ts` — GET (paginated, `?cursor=&limit=`) /POST/DELETE articles
 - `app/api/nods/route.ts` — toggle nod (upvote) on an article
 - `app/api/article-state/route.ts` — PATCH per-user save/read/dismiss state, action-discriminated body (see DECISIONS.md)
+- `app/api/profile/route.ts` — PATCH the caller's `display_name`
 - `app/api/fetch-og/route.ts` — Microlink metadata fetch with manual fallback
 - `app/api/archive-check/route.ts` — best-effort archive.today snapshot lookup (see DECISIONS.md)
 - `app/api/author-articles/route.ts` — RSS feeds for the curated authors (driven by the `authors` table, no code change to add one)
 - `components/ArticleCard.tsx` — article card with Nods button + Save/Read/Dismiss kebab menu
 - `components/SubmitArticle.tsx` — share form with preset tags + archive.is field
 - `components/AuthorFeed.tsx` — author RSS section
-- `components/ThemeToggle.tsx` — light/dark toggle, writes `data-theme` + localStorage
+- `components/ThemeToggle.tsx` — light/dark toggle (header), via `lib/useTheme.ts`
 - `components/Toast.tsx` — dismiss-with-undo toast stack, state owned by FeedClient
+- `app/profile/page.tsx` / `ProfileClient.tsx` — display name (`profiles.display_name`), theme selector, FAQ accordion (native `<details>`, no library — see DECISIONS.md); header avatar in `FeedClient.tsx` links here
 - `app/manifest.ts` — PWA manifest with Android share_target
 - `app/share/page.tsx` — share-sheet landing, redirects to /feed?share=
 - `app/error.tsx` / `app/not-found.tsx` — themed error/404 pages, Broadsheet palette
