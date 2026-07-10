@@ -28,7 +28,7 @@ Findings from the full acquisition-style code review (2026-07-07, full details i
 
 ### Medium priority
 
-- [ ] **Adopt DB migrations** — the four `supabase/*.sql` files are run-by-hand snapshots with implicit ordering; production drift is unverifiable. Move to Supabase CLI migrations or a single canonical dumped schema.
+- [ ] **Adopt DB migrations** — the `supabase/*.sql` files (six as of 2026-07-10: `schema`, `nods-schema`, `nod-counts-view`, `article-state-schema`, `authors-schema`, `profiles-schema`) are run-by-hand snapshots with implicit ordering; production drift is unverifiable, and the count keeps growing every feature. Move to Supabase CLI migrations or a single canonical dumped schema.
 
 ---
 
@@ -45,4 +45,4 @@ Findings from the full acquisition-style code review (2026-07-07, full details i
 - [ ] **Trending articles panel** — pull in what's popular outside the friend group (e.g. Hacker News top stories). Considered and deferred — the group didn't want noise from outside.
 - [ ] **Invite flow** — currently access is by manually adding emails in Supabase. A simple invite-by-email flow would make onboarding new friends easier.
 - [ ] **Recolor QuillIcon for the new palette** — the quill logo's hardcoded amber/gold hex fills (`components/QuillIcon.tsx`) don't participate in the paper/ink/accent token system and stay static across light/dark mode. Left as-is deliberately (a warm quill reads fine as a standalone mark), but worth reconsidering if it looks dated next to the new editorial palette.
-- [ ] **Move dismissed/saved filtering into a DB-side anti-join** — `fetchEnrichedArticles` pre-fetches the caller's full dismissed-ID list (and saved-ID list when the Saved filter is on) on every feed request and ships it back as a URL filter. Unbounded over time; fine at friend-group scale (see DECISIONS.md), but a public launch should replace both lookups with a view or RPC that joins `article_state` in Postgres.
+- [ ] **Move saved/read/dismissed filtering into a DB-side anti-join** — `fetchEnrichedArticles`'s `fetchStateIds` helper pre-fetches the caller's full ID list for whichever of dismissed/saved/read is active (dismissed always, for the default exclusion) on every feed request and ships it back as a URL filter. Unbounded over time; fine at friend-group scale (see DECISIONS.md), but a public launch should replace these lookups with a view or RPC that joins `article_state` in Postgres.

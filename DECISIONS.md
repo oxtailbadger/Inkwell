@@ -235,9 +235,13 @@ The 2026-07-09 Profile page (`app/profile/`) needed an editable username. `publi
 
 The header avatar (a first-letter monogram linking to `/profile`, `app/feed/FeedClient.tsx`) derives its letter from `display_name`, not the email prefix, for consistency with everywhere else a user's name is already shown (`AuthorFeed`/`ArticleCard` bylines both use `display_name`) — two different "identity strings" for the same person in the same header would read as a bug. This is the one new piece of server-side plumbing the feature needed: `app/feed/page.tsx` didn't fetch `profiles` before; it now does, alongside the existing articles/tags queries, in the same `Promise.all`.
 
+---
+
 ## Theme read/write extracted into `lib/useTheme.ts`, shared by the header toggle and the profile settings
 
 `ThemeToggle.tsx` (header, a single "click to switch" button) and the profile page's theme selector (an explicit Light/Dark segmented control — a better fit once the user is looking at a settings page, not just a toolbar) need the identical underlying behavior: read `data-theme` from the DOM in an effect, write it back plus `localStorage["inkwell-theme"]` on change, wrapped in try/catch for storage-disabled environments. Rather than duplicate that logic, it's a small hook (`useTheme`) both components call — `ThemeToggle` is now a thin two-line consumer. Both surfaces read/write the exact same key, so toggling in one place is immediately reflected if the other is opened next (they're never mounted simultaneously — different routes — so no cross-component sync was needed, just shared logic).
+
+---
 
 ## FAQ is a native `<details>`/`<summary>` accordion — no state, no library
 
@@ -260,3 +264,11 @@ Adding `?read=1` and `?dismissed=1` alongside the existing `?saved=1` was the po
 `ThemeToggle.tsx` (2026-07-10) changed from a button whose label named the *other* mode ("Dark" when currently light) to a pill switch — sun and moon glyphs fixed at each end of the track, a circular knob sliding between them (`translate-x-0`/`translate-x-6`, `role="switch"` + `aria-checked`). The old text-label version reads as a status readout on first glance ("it says Dark, is that the current mode or the mode I'll get?"); a switch with a knob is unambiguous at a glance. The profile page's theme control (`app/profile/ProfileClient.tsx`) is intentionally left as an explicit two-button Light/Dark selector, not this pill — a labeled selector reads better in a settings-page context, a compact glance-able switch reads better in a persistent header. Both still go through the same `lib/useTheme.ts` hook.
 
 The knob uses `bg-ink` (not a new token) specifically because that token already flips light/dark with the theme — a dark knob on the light-mode pale track, a light knob on the dark-mode near-black track, both against the same `bg-card` track color. Same mechanism already relied on for the header avatar and site-badge monograms; no new color decision needed here.
+
+---
+
+## Tests are logic-level (direct function calls + hand-built Supabase mocks), never DOM-rendered
+
+Every file in `__tests__/` (14 as of 2026-07-10, one per API route or `lib/` module, flat — not colocated with source) follows the same shape: API routes are imported and called directly (`POST(makeRequest(...))`, a real `NextRequest` built by a small local `makeRequest` helper, no server actually running); `page.tsx` server components are called directly as async functions, with `next/navigation`'s `redirect` mocked to `throw` (matching production — `redirect()` really does throw `NEXT_REDIRECT` — so a test can `expect(...).rejects.toThrow(...)` instead of needing a try/catch wrapper *and* the page's own control flow after a redirect call is exercised for free, not skipped). Nothing in this repo uses `@testing-library/react` or renders a component to a DOM — verifying visual/interactive behavior (does the kebab menu actually open, does the toast actually animate) happens via the `preview_*` MCP tools against a real running dev server instead, not unit tests. Don't introduce a DOM-render test library without a real need; the existing convention has covered every feature added so far, including fairly stateful client components (`ArticleCard`, `FeedClient`).
+
+Supabase is never mocked generically — each test file hand-builds a chainable fake object matching the *exact* method-call shape the code under test issues (e.g. `.select().eq().eq()` vs `.select().eq().in()` are different fakes, disambiguated by inspecting which column/args were passed if the same table serves two different query shapes — see `article_state`'s handling in `__tests__/articles-lib.test.ts`). This is more verbose than a generic mock but catches real shape mismatches (a code change that adds an unexpected `.order()` call breaks the test immediately, rather than a generic mock silently accepting any chain). `vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }))` at module scope, then `vi.mocked(createClient).mockResolvedValue(fakeSupabase as never)` per test, `beforeEach(() => vi.clearAllMocks())`.
