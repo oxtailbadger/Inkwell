@@ -29,6 +29,7 @@ Findings from the full acquisition-style code review (2026-07-07, full details i
 ### Medium priority
 
 - [ ] **Adopt DB migrations** — the `supabase/*.sql` files (six as of 2026-07-10: `schema`, `nods-schema`, `nod-counts-view`, `article-state-schema`, `authors-schema`, `profiles-schema`) are run-by-hand snapshots with implicit ordering; production drift is unverifiable, and the count keeps growing every feature. Move to Supabase CLI migrations or a single canonical dumped schema.
+- [ ] **Audit for SECURITY DEFINER views/functions before launch** — the `article_nod_counts` view was recreated `with (security_invoker = true)` (2026-07-10, see DECISIONS.md) after Supabase's linter flagged it; a DEFINER-context view reads underlying tables as its owner and bypasses the caller's RLS. Run the full Supabase database linter and confirm every view and `SECURITY DEFINER` function is either invoker-context or has a deliberate, documented reason to run as owner. Cheap to check, and it directly gates the "enforce the access model in code" blocker above — RLS is only trustworthy if nothing routes around it.
 
 ---
 
@@ -36,7 +37,7 @@ Findings from the full acquisition-style code review (2026-07-07, full details i
 
 - [ ] **NYT / WSJ previews always go manual** — Microlink's EPROXYNEEDED is a hard block. No fix short of a paid Microlink plan or a custom proxy. The manual fallback form is the current workaround.
 - [ ] **Author RSS cache is 1 hour** — set via Vercel edge cache in `author-articles/route.ts`. New articles won't appear for up to an hour after publish.
-- [ ] **Nod count visible to all** — currently nod counts are public. If the group wants anonymity ("I don't want people to know what I've read"), counts would need to be hidden.
+- [ ] **Nod count visible to all** — currently nod counts are public. If the group wants anonymity ("I don't want people to know what I've read"), counts would need to be hidden. Now a clean change: the `article_nod_counts` view is `security_invoker = true` (see DECISIONS.md), so tightening `nods`'s SELECT policy propagates through the view instead of being bypassed by it.
 
 ---
 
@@ -44,4 +45,4 @@ Findings from the full acquisition-style code review (2026-07-07, full details i
 
 - [ ] **Trending articles panel** — pull in what's popular outside the friend group (e.g. Hacker News top stories). Considered and deferred — the group didn't want noise from outside.
 - [ ] **Invite flow** — currently access is by manually adding emails in Supabase. A simple invite-by-email flow would make onboarding new friends easier.
-- [ ] **Move saved/read/dismissed filtering into a DB-side anti-join** — `fetchEnrichedArticles`'s `fetchStateIds` helper pre-fetches the caller's full ID list for whichever of dismissed/saved/read is active (dismissed always, for the default exclusion) on every feed request and ships it back as a URL filter. Unbounded over time; fine at friend-group scale (see DECISIONS.md), but a public launch should replace these lookups with a view or RPC that joins `article_state` in Postgres.
+- [ ] **Move saved/read/dismissed filtering into a DB-side anti-join** — `fetchEnrichedArticles`'s `fetchStateIds` helper pre-fetches the caller's full ID list for whichever of dismissed/saved/read is active (dismissed always, for the default exclusion) on every feed request and ships it back as a URL filter. Unbounded over time; fine at friend-group scale (see DECISIONS.md), but a public launch should replace these lookups with a view or RPC that joins `article_state` in Postgres. If this becomes a view, create it `with (security_invoker = true)` — `article_state` is per-user private, so a DEFINER-context view here would leak every user's saved/read/dismissed rows to any caller (see DECISIONS.md).
