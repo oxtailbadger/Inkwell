@@ -18,6 +18,20 @@ export function useTheme() {
   useEffect(() => {
     const current = document.documentElement.getAttribute("data-theme");
     setThemeState(current === "dark" ? "dark" : "light");
+
+    // Keep every mounted useTheme consumer (header toggle, profile selector)
+    // and any other open tab in sync: the `storage` event fires in all *other*
+    // tabs of this origin when localStorage changes, so a theme change made on
+    // the profile page is reflected live in a feed tab left open elsewhere,
+    // not just on that tab's next refresh.
+    function onStorage(e: StorageEvent) {
+      if (e.key !== STORAGE_KEY) return;
+      const next = e.newValue === "dark" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", next);
+      setThemeState(next);
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   function setTheme(next: "light" | "dark") {

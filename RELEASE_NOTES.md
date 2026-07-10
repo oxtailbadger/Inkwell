@@ -12,7 +12,7 @@ Inkwell's amber-and-ivory look has been retired in favor of "Broadsheet" — a n
 
 ### 🌙 Real dark mode
 
-There's a new sun/moon switch in the header — a small pill with a sliding knob, so it's obviously a toggle at a glance. Flip it once and every page, including sign-in, will default to it. Save the setting in your profile.
+There's a new sun/moon switch in the header — a small pill with a sliding knob, so it's obviously a toggle at a glance. Flip it once and every page, including sign-in, remembers your choice on that device (in this browser) until you change it. You can also set it from your Profile page.
 
 ### 🔖 Save, Read, and Dismiss
 
@@ -20,7 +20,7 @@ Every article card now has a **⋮** menu: **Save** it for later, **mark it read
 
 ### 👤 A Profile page
 
-Click the new circular avatar next to your email to get to your **Profile** page: set your display name, choose light or dark mode as a real setting, and check the new FAQ — including how to share articles from your phone's share sheet on Android, or a one-tap Shortcut on iPhone.
+Click the new circular avatar next to your email to get to your **Profile** page: set your display name, pick light or dark mode (remembered per device), and check the new FAQ — including how to share articles from your phone's share sheet on Android, or a one-tap Shortcut on iPhone.
 
 ### ⚡ Faster loading
 
