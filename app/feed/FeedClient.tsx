@@ -27,6 +27,8 @@ export default function FeedClient({
   initialNextCursor,
   initialTag,
   initialSavedOnly,
+  initialReadOnly,
+  initialDismissedOnly,
   initialAllTags,
   initialError,
 }: {
@@ -37,13 +39,18 @@ export default function FeedClient({
   initialNextCursor: string | null;
   initialTag: string | null;
   initialSavedOnly: boolean;
+  initialReadOnly: boolean;
+  initialDismissedOnly: boolean;
   initialAllTags: string[];
   initialError: string | null;
 }) {
   const searchParams = useSearchParams();
-  // Tag + saved filters live in the URL so filtered views are shareable and survive reloads
+  // Tag + saved/read/dismissed filters all live in the URL so filtered
+  // views are shareable and survive reloads
   const activeTag = searchParams.get("tag");
   const savedOnly = searchParams.get("saved") === "1";
+  const readOnly = searchParams.get("read") === "1";
+  const dismissedOnly = searchParams.get("dismissed") === "1";
   // Set by /share (Web Share Target); captured once — SubmitArticle seeds
   // its state from the first value, and we scrub it from the URL below
   const sharedUrl = useRef(searchParams.get("share")).current;
@@ -77,16 +84,29 @@ export default function FeedClient({
     return () => timers.forEach((t) => clearTimeout(t));
   }, []);
 
+  // Shared by loadArticles/loadMore below — builds the query string from
+  // whatever combination of tag/saved/read/dismissed is currently active
+  // (saved/read/dismissed are independent toggles, ANDed together, not
+  // mutually exclusive with each other or with the tag filter)
+  const activeFilterParams = useCallback(
+    (extra?: Record<string, string>) => {
+      const params = new URLSearchParams(extra);
+      if (activeTag) params.set("tag", activeTag);
+      if (savedOnly) params.set("saved", "1");
+      if (readOnly) params.set("read", "1");
+      if (dismissedOnly) params.set("dismissed", "1");
+      return params;
+    },
+    [activeTag, savedOnly, readOnly, dismissedOnly]
+  );
+
   // Full-list replace (initial load, tag change, post-submit refresh) — not
   // to be confused with loadMore() below, which appends instead of replacing
   const loadArticles = useCallback(async () => {
     setLoading(true);
     setFeedError(null);
     try {
-      const params = new URLSearchParams();
-      if (activeTag) params.set("tag", activeTag);
-      if (savedOnly) params.set("saved", "1");
-      const qs = params.toString();
+      const qs = activeFilterParams().toString();
       const res = await fetch(qs ? `/api/articles?${qs}` : "/api/articles");
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load articles");
@@ -99,16 +119,14 @@ export default function FeedClient({
     } finally {
       setLoading(false);
     }
-  }, [activeTag, savedOnly]);
+  }, [activeFilterParams]);
 
   async function loadMore() {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
     setFeedError(null);
     try {
-      const params = new URLSearchParams({ cursor: nextCursor });
-      if (activeTag) params.set("tag", activeTag);
-      if (savedOnly) params.set("saved", "1");
+      const params = activeFilterParams({ cursor: nextCursor });
       const res = await fetch(`/api/articles?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load more articles");
@@ -122,31 +140,54 @@ export default function FeedClient({
   }
 
   useEffect(() => {
-    if (hydratedFromServer.current && activeTag === initialTag && savedOnly === initialSavedOnly) {
+    if (
+      hydratedFromServer.current &&
+      activeTag === initialTag &&
+      savedOnly === initialSavedOnly &&
+      readOnly === initialReadOnly &&
+      dismissedOnly === initialDismissedOnly
+    ) {
       hydratedFromServer.current = false;
       return;
     }
     hydratedFromServer.current = false;
     loadArticles();
-  }, [loadArticles, activeTag, initialTag, savedOnly, initialSavedOnly]);
+  }, [loadArticles, activeTag, initialTag, savedOnly, initialSavedOnly, readOnly, initialReadOnly, dismissedOnly, initialDismissedOnly]);
 
   // Shallow history update: syncs useSearchParams without a server round-trip
-  // (the tag-change effect below does the client-side fetch)
-  function setActiveTag(tag: string | null) {
+  // (the tag-change effect below does the client-side fetch). Any filter not
+  // named in `overrides` keeps its current value.
+  function updateFilters(overrides: { tag?: string | null; saved?: boolean; read?: boolean; dismissed?: boolean }) {
     const params = new URLSearchParams();
-    if (tag) params.set("tag", tag);
-    if (savedOnly) params.set("saved", "1");
+    const nextTag = overrides.tag !== undefined ? overrides.tag : activeTag;
+    const nextSaved = overrides.saved !== undefined ? overrides.saved : savedOnly;
+    const nextRead = overrides.read !== undefined ? overrides.read : readOnly;
+    const nextDismissed = overrides.dismissed !== undefined ? overrides.dismissed : dismissedOnly;
+    if (nextTag) params.set("tag", nextTag);
+    if (nextSaved) params.set("saved", "1");
+    if (nextRead) params.set("read", "1");
+    if (nextDismissed) params.set("dismissed", "1");
     const qs = params.toString();
     window.history.replaceState(null, "", qs ? `/feed?${qs}` : "/feed");
   }
 
-  // Independent of the tag filter — AND'd together, not mutually exclusive
+  function setActiveTag(tag: string | null) {
+    updateFilters({ tag });
+  }
   function toggleSavedOnly() {
-    const params = new URLSearchParams();
-    if (activeTag) params.set("tag", activeTag);
-    if (!savedOnly) params.set("saved", "1");
-    const qs = params.toString();
-    window.history.replaceState(null, "", qs ? `/feed?${qs}` : "/feed");
+    updateFilters({ saved: !savedOnly });
+  }
+  function toggleReadOnly() {
+    updateFilters({ read: !readOnly });
+  }
+  function toggleDismissedOnly() {
+    updateFilters({ dismissed: !dismissedOnly });
+  }
+  // Used by each empty-state's "Show all articles" link — clears every
+  // state-view toggle at once rather than just the one that's active,
+  // since more than one can be on together
+  function clearStateFilters() {
+    updateFilters({ saved: false, read: false, dismissed: false });
   }
 
   // Track which section is in view based on scroll position. Throttled via
@@ -244,6 +285,34 @@ export default function FeedClient({
       .catch(() => setFeedError("Could not undo the dismiss. Please try again."));
   }
 
+  // Restoring a previously-dismissed article, from the Dismissed view's kebab
+  // menu — distinct from Undo above (which reverses a *just-now* dismiss
+  // within the toast window). No toast/undo grace period here: restoring is
+  // the corrective action, not the destructive one, so it commits directly.
+  function handleRestore(id: string) {
+    setOpenMenuId(null);
+    if (dismissedOnly) setCollapsedIds((prev) => new Set(prev).add(id));
+
+    fetch("/api/article-state", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ article_id: id, action: "undismiss" }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error();
+      })
+      .catch(() => {
+        if (dismissedOnly) {
+          setCollapsedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        }
+        setFeedError("Could not restore the article. Please try again.");
+      });
+  }
+
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -320,19 +389,44 @@ export default function FeedClient({
           <section id="articles" className="space-y-6 scroll-mt-20">
             <SubmitArticle onSubmitted={loadArticles} initialUrl={sharedUrl ?? undefined} />
 
-            {/* Independent of the tag filter below — AND'd together, not
-                mutually exclusive, so "Saved" + a tag can be active at once */}
-            <button
-              onClick={toggleSavedOnly}
-              aria-pressed={savedOnly}
-              className={`inline-flex items-center gap-1.5 text-[13px] font-medium rounded-control px-3.5 py-1.5 border transition-colors ${
-                savedOnly
-                  ? "bg-accent-tint border-accent text-accent"
-                  : "bg-transparent border-card-border text-ink hover:border-ink"
-              }`}
-            >
-              🔖 Saved
-            </button>
+            {/* Independent of the tag filter below and of each other — all
+                AND'd together, not mutually exclusive, so e.g. "Saved" + a
+                tag can be active at once */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={toggleSavedOnly}
+                aria-pressed={savedOnly}
+                className={`inline-flex items-center gap-1.5 text-[13px] font-medium rounded-control px-3.5 py-1.5 border transition-colors ${
+                  savedOnly
+                    ? "bg-accent-tint border-accent text-accent"
+                    : "bg-transparent border-card-border text-ink hover:border-ink"
+                }`}
+              >
+                🔖 Saved
+              </button>
+              <button
+                onClick={toggleReadOnly}
+                aria-pressed={readOnly}
+                className={`inline-flex items-center gap-1.5 text-[13px] font-medium rounded-control px-3.5 py-1.5 border transition-colors ${
+                  readOnly
+                    ? "bg-accent-tint border-accent text-accent"
+                    : "bg-transparent border-card-border text-ink hover:border-ink"
+                }`}
+              >
+                ✓ Read
+              </button>
+              <button
+                onClick={toggleDismissedOnly}
+                aria-pressed={dismissedOnly}
+                className={`inline-flex items-center gap-1.5 text-[13px] font-medium rounded-control px-3.5 py-1.5 border transition-colors ${
+                  dismissedOnly
+                    ? "bg-accent-tint border-accent text-accent"
+                    : "bg-transparent border-card-border text-ink hover:border-ink"
+                }`}
+              >
+                ✕ Dismissed
+              </button>
+            </div>
 
             {/* Keep the bar visible when a filter is active even if it matched
                 nothing, so "All" is always reachable */}
@@ -386,7 +480,29 @@ export default function FeedClient({
                     <p className="font-medium text-ink">No saved articles yet</p>
                     <p className="text-sm mt-1">Use the ⋮ menu on a card to save it for later.</p>
                     <button
-                      onClick={toggleSavedOnly}
+                      onClick={clearStateFilters}
+                      className="text-sm mt-1 text-accent border-b border-accent"
+                    >
+                      Show all articles
+                    </button>
+                  </>
+                ) : readOnly ? (
+                  <>
+                    <p className="font-medium text-ink">No read articles yet</p>
+                    <p className="text-sm mt-1">Mark an article read from its ⋮ menu.</p>
+                    <button
+                      onClick={clearStateFilters}
+                      className="text-sm mt-1 text-accent border-b border-accent"
+                    >
+                      Show all articles
+                    </button>
+                  </>
+                ) : dismissedOnly ? (
+                  <>
+                    <p className="font-medium text-ink">Nothing dismissed</p>
+                    <p className="text-sm mt-1">Articles you dismiss show up here so you can bring them back.</p>
+                    <button
+                      onClick={clearStateFilters}
                       className="text-sm mt-1 text-accent border-b border-accent"
                     >
                       Show all articles
@@ -434,6 +550,7 @@ export default function FeedClient({
                           onToggleMenu={() => setOpenMenuId((prev) => (prev === article.id ? null : article.id))}
                           onCloseMenu={() => setOpenMenuId(null)}
                           onDismiss={handleDismiss}
+                          onUndismiss={handleRestore}
                         />
                       </div>
                     );

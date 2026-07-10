@@ -62,6 +62,26 @@ export async function fetchAllTags(supabase: SupabaseClient): Promise<string[]> 
   return [...new Set((data ?? []).flatMap((row) => (row.tags as string[]) ?? []))].sort();
 }
 
+// Article IDs where article_state.<column> is true for this user — the
+// shared shape behind the dismissed-exclusion lookup and the Saved/Read/
+// Dismissed "only" filters below.
+async function fetchStateIds(
+  supabase: SupabaseClient,
+  userId: string,
+  column: "saved" | "read" | "dismissed"
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("article_state")
+    .select("article_id")
+    .eq("user_id", userId)
+    .eq(column, true);
+  return (data ?? []).map((r) => r.article_id as string);
+}
+
+function intersectIdLists(lists: string[][]): string[] {
+  return lists.reduce((acc, list) => acc.filter((id) => list.includes(id)));
+}
+
 // Shared by GET /api/articles and the server-rendered feed page.
 // Fetches one page of articles (optionally filtered by tag) and enriches
 // each with nod counts, the current user's nod state, and the submitter's
@@ -70,9 +90,11 @@ export async function fetchEnrichedArticles(
   supabase: SupabaseClient,
   userId: string,
   tag: string | null,
-  opts: { limit: number; cursor?: string | null; savedOnly?: boolean } = { limit: 24 }
+  opts: { limit: number; cursor?: string | null; savedOnly?: boolean; readOnly?: boolean; dismissedOnly?: boolean } = {
+    limit: 24,
+  }
 ) {
-  const { limit, cursor, savedOnly } = opts;
+  const { limit, cursor, savedOnly, readOnly, dismissedOnly } = opts;
 
   let decoded: { created_at: string; id: string } | null = null;
   if (cursor) {
@@ -86,27 +108,27 @@ export async function fetchEnrichedArticles(
   // Articles this user has dismissed are excluded from the feed at the
   // query level (not filtered client-side) so page-size math stays correct
   // as pages fill in — a small, bounded lookup, same batching idiom as the
-  // articleIds/submitterIds queries below.
-  const { data: dismissedRows } = await supabase
-    .from("article_state")
-    .select("article_id")
-    .eq("user_id", userId)
-    .eq("dismissed", true);
-  const dismissedIds = (dismissedRows ?? []).map((r) => r.article_id as string);
+  // articleIds/submitterIds queries below. Under the Dismissed view this
+  // same list is repurposed as an inclusion filter instead (see below), not
+  // fetched twice.
+  const dismissedIds = await fetchStateIds(supabase, userId, "dismissed");
 
-  // "Saved" view: a second bounded lookup, only when requested. Dismissed
-  // still wins over saved (see DECISIONS.md) — a dismissed article
-  // disappears everywhere, including from the Saved view, rather than
-  // needing a second "un-hide" action to find it again.
-  let savedIds: string[] | null = null;
-  if (savedOnly) {
-    const { data: savedRows } = await supabase
-      .from("article_state")
-      .select("article_id")
-      .eq("user_id", userId)
-      .eq("saved", true);
-    savedIds = (savedRows ?? []).map((r) => r.article_id as string);
-    if (savedIds.length === 0) return { articles: [], nextCursor: null, error: null };
+  // Saved/Read/Dismissed "only" views: each is a second bounded lookup, only
+  // run when requested, intersected together when more than one is active
+  // (e.g. Saved + Read shows articles that are both). Dismissed is the odd
+  // one out — normally excluded (below), but under dismissedOnly the same
+  // ID list becomes what we require instead of what we exclude, since
+  // "show only what I dismissed" and "hide what I dismissed" are opposites
+  // that can't both apply.
+  const onlyIdLists: string[][] = [];
+  if (dismissedOnly) onlyIdLists.push(dismissedIds);
+  if (savedOnly) onlyIdLists.push(await fetchStateIds(supabase, userId, "saved"));
+  if (readOnly) onlyIdLists.push(await fetchStateIds(supabase, userId, "read"));
+
+  let onlyIds: string[] | null = null;
+  if (onlyIdLists.length > 0) {
+    onlyIds = onlyIdLists.length === 1 ? onlyIdLists[0] : intersectIdLists(onlyIdLists);
+    if (onlyIds.length === 0) return { articles: [], nextCursor: null, error: null };
   }
 
   // Order by created_at then id (both descending) so id can break ties
@@ -120,13 +142,13 @@ export async function fetchEnrichedArticles(
     .limit(limit + 1);
 
   if (tag) query = query.contains("tags", [tag]);
-  if (savedIds) query = query.in("id", savedIds);
+  if (onlyIds) query = query.in("id", onlyIds);
   if (decoded) {
     query = query.or(
       `created_at.lt.${decoded.created_at},and(created_at.eq.${decoded.created_at},id.lt.${decoded.id})`
     );
   }
-  if (dismissedIds.length > 0) {
+  if (!dismissedOnly && dismissedIds.length > 0) {
     query = query.not("id", "in", `(${dismissedIds.join(",")})`);
   }
 

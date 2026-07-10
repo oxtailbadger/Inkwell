@@ -41,9 +41,15 @@ function makeFakeSupabase({
   profiles = [] as { id: string; display_name: string }[],
   dismissedRows = [] as { article_id: string }[],
   savedRows = [] as { article_id: string }[],
+  readRows = [] as { article_id: string }[],
   stateRows = [] as { article_id: string; saved: boolean; read: boolean; dismissed: boolean }[],
 } = {}) {
   const articlesResult = { data: articlesError ? null : articles, error: articlesError };
+  const rowsByColumn: Record<string, { article_id: string }[]> = {
+    saved: savedRows,
+    read: readRows,
+    dismissed: dismissedRows,
+  };
 
   return {
     from: vi.fn((table: string) => {
@@ -60,16 +66,15 @@ function makeFakeSupabase({
         return { select: () => ({ in: () => Promise.resolve({ data: profiles, error: null }) }) };
       }
       if (table === "article_state") {
-        // Same `.eq()` first hop serves three different second hops: the
-        // dismissed-exclusion pre-query (.eq("dismissed",true)), the
-        // saved-only pre-query (.eq("saved",true)), and the per-page state
-        // merge (.eq("user_id",...).in(...)) — disambiguate the two .eq().eq()
-        // shapes by which column the second .eq() names.
+        // Same `.eq()` first hop serves four different second hops: the
+        // dismissed-exclusion / saved-only / read-only pre-queries
+        // (.eq("<column>",true)) and the per-page state merge
+        // (.eq("user_id",...).in(...)) — disambiguate the .eq().eq() shapes
+        // by which column the second .eq() names.
         return {
           select: () => ({
             eq: () => ({
-              eq: (column: string) =>
-                Promise.resolve({ data: column === "saved" ? savedRows : dismissedRows, error: null }),
+              eq: (column: string) => Promise.resolve({ data: rowsByColumn[column] ?? [], error: null }),
               in: () => Promise.resolve({ data: stateRows, error: null }),
             }),
           }),
@@ -241,6 +246,85 @@ describe("fetchEnrichedArticles", () => {
     expect(error).toBeNull();
     expect(articles).toHaveLength(1);
     expect(articles![0]).toMatchObject({ id: "a1", saved: true });
+  });
+
+  it("readOnly: returns an empty list without querying articles at all when nothing is read", async () => {
+    const supabase = makeFakeSupabase({ articles: [article("a1", "user-1")], readRows: [] });
+    const { articles, error } = await fetchEnrichedArticles(supabase, "me", null, { limit: 24, readOnly: true });
+    expect(articles).toEqual([]);
+    expect(error).toBeNull();
+    const from = supabase.from as ReturnType<typeof vi.fn>;
+    expect(from).not.toHaveBeenCalledWith("articles");
+  });
+
+  it("readOnly: looks up read article IDs and proceeds to the normal query/enrichment when some exist", async () => {
+    const supabase = makeFakeSupabase({
+      articles: [article("a1", "user-1")],
+      readRows: [{ article_id: "a1" }],
+      stateRows: [{ article_id: "a1", saved: false, read: true, dismissed: false }],
+    });
+    const { articles, error } = await fetchEnrichedArticles(supabase, "me", null, { limit: 24, readOnly: true });
+    expect(error).toBeNull();
+    expect(articles).toHaveLength(1);
+    expect(articles![0]).toMatchObject({ id: "a1", read: true });
+  });
+
+  it("dismissedOnly: shows dismissed articles instead of excluding them, and skips the exclusion filter", async () => {
+    const supabase = makeFakeSupabase({
+      articles: [article("a1", "user-1")],
+      dismissedRows: [{ article_id: "a1" }],
+      stateRows: [{ article_id: "a1", saved: false, read: false, dismissed: true }],
+    });
+    const { articles, error } = await fetchEnrichedArticles(supabase, "me", null, { limit: 24, dismissedOnly: true });
+    expect(error).toBeNull();
+    // The fake doesn't apply .in()/.not() filtering itself (Postgres's job);
+    // what's testable here is that the request proceeds to enrichment
+    // instead of the empty-shortcut a savedOnly/readOnly-style "nothing
+    // matches" case would take, since dismissedRows is non-empty.
+    expect(articles).toHaveLength(1);
+    expect(articles![0]).toMatchObject({ id: "a1", dismissed: true });
+  });
+
+  it("dismissedOnly: returns an empty list without querying articles when nothing is dismissed", async () => {
+    const supabase = makeFakeSupabase({ articles: [article("a1", "user-1")], dismissedRows: [] });
+    const { articles, error } = await fetchEnrichedArticles(supabase, "me", null, { limit: 24, dismissedOnly: true });
+    expect(articles).toEqual([]);
+    expect(error).toBeNull();
+    const from = supabase.from as ReturnType<typeof vi.fn>;
+    expect(from).not.toHaveBeenCalledWith("articles");
+  });
+
+  it("savedOnly + readOnly together: intersects the two ID lists, not a union", async () => {
+    const supabase = makeFakeSupabase({
+      articles: [article("a1", "user-1")],
+      savedRows: [{ article_id: "a1" }, { article_id: "a2" }],
+      readRows: [{ article_id: "a2" }, { article_id: "a3" }],
+    });
+    // a1 is saved-only, a3 is read-only, a2 is both — only a2 should survive
+    // the intersection. The fake can't verify the .in() argument directly,
+    // but an empty intersection (no article_id in both lists) must still
+    // short-circuit before querying articles at all.
+    const empty = makeFakeSupabase({
+      articles: [article("a1", "user-1")],
+      savedRows: [{ article_id: "a1" }],
+      readRows: [{ article_id: "a2" }],
+    });
+    const { articles, error } = await fetchEnrichedArticles(empty, "me", null, {
+      limit: 24,
+      savedOnly: true,
+      readOnly: true,
+    });
+    expect(articles).toEqual([]);
+    expect(error).toBeNull();
+    const from = empty.from as ReturnType<typeof vi.fn>;
+    expect(from).not.toHaveBeenCalledWith("articles");
+    // Sanity-check the non-empty intersection case reaches the articles query
+    const { articles: articles2 } = await fetchEnrichedArticles(supabase, "me", null, {
+      limit: 24,
+      savedOnly: true,
+      readOnly: true,
+    });
+    expect(articles2).toHaveLength(1);
   });
 });
 

@@ -239,6 +239,22 @@ describe("GET /api/articles", () => {
     expect(Array.isArray(body.articles)).toBe(true);
     expect(body).toHaveProperty("nextCursor");
   });
+
+  it("reads ?read=1 and returns a valid (possibly empty) page rather than erroring", async () => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
+    const res = await GET(makeRequest("GET", undefined, { read: "1" }));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(Array.isArray(body.articles)).toBe(true);
+  });
+
+  it("reads ?dismissed=1 and returns a valid (possibly empty) page rather than erroring", async () => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
+    const res = await GET(makeRequest("GET", undefined, { dismissed: "1" }));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(Array.isArray(body.articles)).toBe(true);
+  });
 });
 
 describe("DELETE /api/articles", () => {

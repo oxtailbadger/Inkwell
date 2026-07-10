@@ -22,6 +22,7 @@ export function ArticleCard({
   onToggleMenu,
   onCloseMenu,
   onDismiss,
+  onUndismiss,
 }: {
   article: Article;
   onDelete: (id: string) => void;
@@ -30,6 +31,7 @@ export function ArticleCard({
   onToggleMenu: () => void;
   onCloseMenu: () => void;
   onDismiss: (id: string, title: string) => void;
+  onUndismiss: (id: string) => void;
 }) {
   const [nodCount, setNodCount] = useState(article.nod_count);
   const [hasNodded, setHasNodded] = useState(article.user_has_nodded);
@@ -207,13 +209,23 @@ export function ArticleCard({
               >
                 ✓ {read ? "Mark unread" : "Mark read"}
               </button>
-              <button
-                role="menuitem"
-                onClick={() => onDismiss(article.id, article.title ?? article.url)}
-                className="w-full text-left flex items-center gap-2 px-3.5 py-2.5 text-[13px] font-medium text-danger hover:bg-tag-bg transition-colors"
-              >
-                ✕ Dismiss
-              </button>
+              {article.dismissed ? (
+                <button
+                  role="menuitem"
+                  onClick={() => onUndismiss(article.id)}
+                  className="w-full text-left flex items-center gap-2 px-3.5 py-2.5 text-[13px] font-medium text-ink hover:bg-tag-bg transition-colors"
+                >
+                  ↺ Restore
+                </button>
+              ) : (
+                <button
+                  role="menuitem"
+                  onClick={() => onDismiss(article.id, article.title ?? article.url)}
+                  className="w-full text-left flex items-center gap-2 px-3.5 py-2.5 text-[13px] font-medium text-danger hover:bg-tag-bg transition-colors"
+                >
+                  ✕ Dismiss
+                </button>
+              )}
             </div>
           )}
         </div>

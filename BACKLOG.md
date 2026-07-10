@@ -6,7 +6,6 @@ Items are roughly ordered by priority within each section. Move things between s
 
 ## Features
 
-- [ ] **"Show dismissed" toggle** — Dismiss (2026-07-09, see DECISIONS.md) hides an article from the feed server-side with no way back once the few-second Undo toast expires. Add a toggle mirroring the "Saved" filter's `?saved=1` URL-param pattern — e.g. `?dismissed=1` — to flip between "all shared articles" and "only what I've dismissed," so a mis-dismissed or reconsidered article can be found and undone later. Most of the backend already exists: `fetchEnrichedArticles`'s dismissed-lookup query just needs to *show* those IDs instead of excluding them, and `PATCH /api/article-state`'s `undismiss` action is already there to bring one back.
 - [ ] **Add more curated authors** — the `authors` table in Supabase drives the feed. Easy to add new RSS feeds without a code deploy. Candidates: Ezra Klein, Matt Levine (Bloomberg), The Economist briefing.
 - [ ] **Article comments / reactions** — a lightweight text reply thread per article so friends can discuss without a group chat. `article_state` (per-user, per-article, RLS scoped to the owning user — see DECISIONS.md) is a ready-made template for a `comments` table's RLS, now that it exists.
 - [ ] **Weekly digest email** — a cron-triggered email (Resend or Postmark) with the top-nodded articles from the past 7 days.
