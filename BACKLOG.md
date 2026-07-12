@@ -25,7 +25,7 @@ Findings from the full acquisition-style code review (2026-07-07, full details i
 
 ### Launch blockers — do before any public exposure
 
-- [ ] **Enforce the access model in code, not dashboard config** — every RLS read policy is `using (true)` for any authenticated user, so privacy still depends partly on the unversioned "allow new signups" Supabase dashboard toggle. `signInWithOtp` now passes `shouldCreateUser: false` (2026-07-09, see DECISIONS.md), which closes the client-side half; the remaining fix is an allowlist table checked by RLS, or the invite flow (see Deferred).
+- [ ] **Enforce the access model in code, not dashboard config** — every RLS read policy is `using (true)` for any authenticated user, so any account can read all shared articles. **Now more urgent:** open self-serve sign-up shipped 2026-07-10 (login page Sign up mode, `shouldCreateUser: true`, see DECISIONS.md), so onboarding no longer requires the owner to hand-add emails — meaning anyone who signs up is inside the shared community. This is acceptable for trusted beta only; before public exposure the fix is an allowlist table checked by RLS, or the invite flow (see Deferred), plus disabling open signup again. The sign-in path still uses `shouldCreateUser: false`.
 - [ ] **Custom SMTP before launch** — auth emails ride Supabase's built-in dev-only sender (a few emails/hour). Set up Resend or Postmark with SPF/DKIM on a real domain; also unblocks the weekly digest feature.
 
 ### Medium priority
@@ -39,6 +39,7 @@ Findings from the full acquisition-style code review (2026-07-07, full details i
 
 - [ ] **NYT / WSJ previews always go manual** — Microlink's EPROXYNEEDED is a hard block. No fix short of a paid Microlink plan or a custom proxy. The manual fallback form is the current workaround.
 - [ ] **Author RSS cache is 1 hour** — set via Vercel edge cache in `author-articles/route.ts`. New articles won't appear for up to an hour after publish.
+- [ ] **OTP code in email for PWA sign-in** — the iOS home-screen PWA has isolated storage, so a magic link that opens in Safari can never sign the installed PWA in; the only fix is letting the user type an emailed code inside the PWA. A code-entry UI existed but was removed 2026-07-10 (see DECISIONS.md) because the Supabase email template sends only a link, not a code, so the box asked for something that didn't exist. To restore it: add the token to the Supabase auth email template (e.g. `{{ .Token }}`), then bring back the `verifyOtp({ type: "email" })` code-entry path on the login page. Until then, PWA users must sign in via the browser first.
 - [ ] **Nod count visible to all** — currently nod counts are public. If the group wants anonymity ("I don't want people to know what I've read"), counts would need to be hidden. Now a clean change: the `article_nod_counts` view is `security_invoker = true` (see DECISIONS.md), so tightening `nods`'s SELECT policy propagates through the view instead of being bypassed by it.
 
 ---

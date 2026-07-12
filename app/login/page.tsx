@@ -4,35 +4,20 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { QuillIcon } from "@/components/QuillIcon";
 
+type Mode = "signin" | "signup";
+
 export default function LoginPage() {
+  const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [code, setCode] = useState("");
-  const [verifying, setVerifying] = useState(false);
 
-  // OTP entry exists for the iOS PWA: home-screen web apps have isolated
-  // storage, so a magic link opening in the browser can never sign the PWA
-  // in — typing the emailed code creates the session inside the PWA itself
-  async function handleVerifyCode(e: React.FormEvent) {
-    e.preventDefault();
-    setVerifying(true);
+  const isSignup = mode === "signup";
+
+  function switchMode(next: Mode) {
+    setMode(next);
     setError(null);
-
-    const supabase = createClient();
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token: code.trim(),
-      type: "email",
-    });
-
-    if (error) {
-      setError(error.message);
-      setVerifying(false);
-    } else {
-      window.location.href = "/feed";
-    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -45,10 +30,10 @@ export default function LoginPage() {
       email,
       options: {
         emailRedirectTo: `${window.location.origin}/api/auth/callback`,
-        // Access is by allowlist (emails added manually in Supabase), not
-        // open signup — don't let signInWithOtp silently create new users
-        // if the dashboard's "allow new signups" toggle is ever left on.
-        shouldCreateUser: false,
+        // Sign-up mode creates the account; sign-in mode won't (an unknown
+        // email gets an error instead of silently becoming a new user). Note:
+        // signup still requires "Allow new signups" enabled in Supabase Auth.
+        shouldCreateUser: isSignup,
       },
     });
 
@@ -75,38 +60,14 @@ export default function LoginPage() {
         </div>
 
         {sent ? (
-          <div className="py-4">
-            <div className="text-center">
-              <div className="text-4xl mb-4">📬</div>
-              <p className="font-semibold text-ink">Check your inbox</p>
-              <p className="text-sm text-muted mt-1">
-                We sent a sign-in link and code to <strong className="text-ink">{email}</strong>
-              </p>
-            </div>
-            <form onSubmit={handleVerifyCode} className="mt-6 space-y-3">
-              <label htmlFor="otp" className="block text-sm font-medium text-ink">
-                Or enter the code from the email
-              </label>
-              <input
-                id="otp"
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                required
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="123456"
-                className="w-full rounded-control border border-card-border bg-card px-3.5 py-2.5 text-sm text-ink text-center tracking-[0.3em] font-medium placeholder:text-muted-2 focus:outline-none focus:border-accent"
-              />
-              {error && <p className="text-sm text-danger">{error}</p>}
-              <button
-                type="submit"
-                disabled={verifying || !code.trim()}
-                className="w-full bg-accent text-card rounded-control py-2.5 text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors"
-              >
-                {verifying ? "Verifying…" : "Sign in with code"}
-              </button>
-            </form>
+          <div className="py-4 text-center">
+            <div className="text-4xl mb-4">📬</div>
+            <p className="font-semibold text-ink">Check your inbox</p>
+            <p className="text-sm text-muted mt-1">
+              We sent a {isSignup ? "confirmation" : "sign-in"} link to{" "}
+              <strong className="text-ink">{email}</strong>. Open it on this device to
+              {isSignup ? " finish signing up" : " sign in"}.
+            </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -130,8 +91,34 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full bg-accent text-card rounded-control py-2.5 text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors"
             >
-              {loading ? "Sending…" : "Send magic link"}
+              {loading ? "Sending…" : isSignup ? "Sign up" : "Send magic link"}
             </button>
+
+            <p className="text-sm text-muted text-center pt-1">
+              {isSignup ? (
+                <>
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => switchMode("signin")}
+                    className="text-accent font-medium hover:underline"
+                  >
+                    Sign in
+                  </button>
+                </>
+              ) : (
+                <>
+                  New to Inkwell?{" "}
+                  <button
+                    type="button"
+                    onClick={() => switchMode("signup")}
+                    className="text-accent font-medium hover:underline"
+                  >
+                    Sign up
+                  </button>
+                </>
+              )}
+            </p>
           </form>
         )}
       </div>

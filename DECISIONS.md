@@ -168,9 +168,13 @@ Tags are normalized to lowercase on insert. Display uses Tailwind's `capitalize`
 
 ---
 
-## signInWithOtp uses shouldCreateUser: false
+## Login has explicit Sign in / Sign up modes; only Sign up creates accounts
 
-`app/login/page.tsx` passes `shouldCreateUser: false` to `supabase.auth.signInWithOtp`. Access is meant to be allowlist-only (emails added manually in the Supabase dashboard), but without this flag `signInWithOtp` will silently create a brand-new account for any email typed in, entirely dependent on the unversioned "allow new signups" dashboard toggle staying off. This closes the client-side half of that gap; the RLS/allowlist-in-code half is still open (see `BACKLOG.md` — "Enforce the access model in code, not dashboard config").
+`app/login/page.tsx` has a `mode` toggle. **Sign in** passes `shouldCreateUser: false` — an unknown email errors instead of silently becoming a new account. **Sign up** passes `shouldCreateUser: true` and creates the account. The flag matters because, left unset, `signInWithOtp` would create a user for *any* email typed into either flow, dependent only on the unversioned "allow new signups" Supabase dashboard toggle.
+
+Open sign-up was added 2026-07-10 to let recruited beta testers onboard themselves instead of the owner hand-adding each email in the dashboard. **This raises, not lowers, the urgency of the access-model work in `BACKLOG.md`:** every RLS read policy is still `using (true)`, so any successful signup can immediately read all shared articles. Open signup is only appropriate while the audience is still trusted-beta; before genuinely public exposure, the allowlist-in-code / invite-gated model must land (see BACKLOG "Enforce the access model in code"). Sign-up also requires "Allow new signups" enabled in Supabase Auth settings — the flag closes the client-side half, the dashboard setting is the server-side half.
+
+The emailed **OTP code entry was removed** at the same time: the Supabase email template currently sends only a magic link, no code, so the code box asked for something that didn't exist. That box existed for the iOS PWA (home-screen web apps have isolated storage, so a magic link opening in Safari can't sign the PWA in). Restoring real PWA sign-in needs the email template to include the token first — tracked in BACKLOG ("OTP code in email for PWA sign-in").
 
 ---
 
