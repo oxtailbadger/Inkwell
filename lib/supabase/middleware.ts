@@ -31,6 +31,7 @@ export async function updateSession(request: NextRequest) {
 
   const isProtected =
     !request.nextUrl.pathname.startsWith("/login") &&
+    !request.nextUrl.pathname.startsWith("/signup") &&
     !request.nextUrl.pathname.startsWith("/api/auth");
 
   if (!user && isProtected) {

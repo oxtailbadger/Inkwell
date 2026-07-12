@@ -2,11 +2,12 @@
 
 **Status:** exploratory. Nothing here is committed or scheduled — this is a decision aid for if/when Inkwell grows past a single friend group. Written 2026-07-10.
 
-This document captures the trade-offs between three futures for Inkwell:
+This document captures the trade-offs between four futures for Inkwell:
 
 - **Option A** — one larger Inkwell *you* operate, hosting many independent communities (multi-tenant SaaS).
 - **Option B** — other people run *their own* Inkwell instance (self-hosted, one community each).
 - **Option C** — Inkwell as a *single-user* article-saving platform (personal read-it-later), no social layer.
+- **Option D** — a *social feed* built on a follow graph: everyone saves their own articles, follows friends to see their feeds, and a "Popular" section surfaces the most-shared articles with the sharer hidden.
 
 They are not mutually exclusive over time (see [Staged path](#staged-path)), but each implies very different engineering, operational, and legal burdens.
 
@@ -118,18 +119,56 @@ Think of it as "tenant = one individual," which is simpler than Option A because
 
 ---
 
+## Option D — A social feed on a follow graph
+
+A different social shape from the friend-group model. Instead of one shared pool everyone in a community sees, **each user has their own library**, chooses **whom to follow**, and sees a feed assembled from the people they follow — plus a **Popular** section that surfaces widely-shared articles with the sharer's identity stripped. Think "a reading-focused social network" rather than "a shared group whiteboard."
+
+This is the most ambitious *product* direction. It reuses Option C's per-user foundation (everyone saving their own articles) but adds a social graph and two new feed-assembly problems (a following feed and an anonymized popularity feed) on top.
+
+### The three pieces
+
+**1. Users save their own articles (personal library).**
+This is Option C's core and largely already exists: `article_state` is per-user, and `articles.submitted_by` records who saved a link. The shift from today is that a saved article is *owned by a person*, not dropped into a community pool. Each user's library is the unit that others can follow.
+
+**2. Find friends and see their feeds (the follow graph).**
+- New `follows` table: `(follower_id, followee_id, created_at)`, primary key `(follower_id, followee_id)`. A directed edge — following is not necessarily mutual (Twitter-style), unless you decide it should be (Facebook-style friend requests, which adds an `accepted` state and a request/accept flow).
+- **User discovery:** a way to find people — search by display name / handle, an invite/share-your-profile link, or "people you may know." This implies **public-ish profiles**, which is a real change: today `profiles` only holds a display name for bylines. You'd want handles, maybe an avatar/bio, and a decision about whether profiles are discoverable by anyone or only via a shared link.
+- **Feed assembly:** "show me articles saved by people I follow, newest first." This is a join `articles ⋈ follows` filtered to `follower_id = auth.uid()`, then reverse-chronological or ranked. The existing cursor pagination in `fetchEnrichedArticles` is a starting point, but the query grows a follow join and the RLS story changes (see below).
+- **Sharing to someone:** "share this article with a friend" could be a direct action (a lightweight `shares`/inbox table, or reusing the follow feed). Optional; the follow feed already covers passive sharing.
+
+**3. "Popular" section — posts shown, sharer hidden.**
+- Aggregate the same URL across everyone who saved it and rank by count (and recency) — conceptually the existing `article_nod_counts` view generalized from nods to "how many distinct users saved/shared this link," likely keyed by a normalized URL rather than the per-row `article.id` (since two people saving the same link are two `articles` rows today — see the dedup note below).
+- **The anonymity requirement is a real design constraint, not just "hide a name in the UI."** Hiding the sharer client-side is not enough — the data must not be *fetchable*. That means the Popular feed can't be a `select *` over `articles` (which carries `submitted_by`); it needs a **dedicated view or RPC that returns only `{ url, title, image, count }` and never the submitter columns**, plus RLS/permissions so a client can't just query the underlying rows to re-identify who shared what. A `security_invoker`-vs-owner decision matters here (see DECISIONS.md on the nod-counts view): the aggregate must be readable without exposing the per-user rows behind it.
+- **k-anonymity threshold:** an item shared by only one person is not anonymous — "popular, shared by 1" trivially re-identifies. Popular should only include items above a minimum distinct-sharer count (e.g. ≥ 3), both for the anonymity promise and because that's what "popular" means.
+
+### Cross-cutting changes this forces
+
+- **RLS gets genuinely hard.** Today's `using (true)` is wrong for a follow model in *both* directions: a user shouldn't see everyone's library (only people they follow), but Popular needs a *sanctioned, aggregated* path across everyone. So you need at least: per-user library policies (`submitted_by = auth.uid()`), a follow-scoped read path (see articles of people who follow-permit you), and a separate aggregate path for Popular that leaks counts but not identities. This is more nuanced than Option A's tenant scoping and, like A, it is **not covered by the current mock-based tests** — it needs real RLS integration tests.
+- **URL de-duplication / canonicalization.** Popularity and "who else saved this" only work if the same article shared by many people collapses to one canonical item. Today each save is an independent `articles` row with its own metadata; you'd want a canonical `link`/`url_hash` (strip tracking params, normalize) and probably a split between a shared `links` entity and per-user `saves`.
+- **Privacy model & consent.** "Anyone can follow me and see everything I save" needs user control: public vs. followers-only vs. private saves, a per-save "don't share this one" (the existing `dismissed`/private flags are a seed), and blocking. Contributing to Popular should arguably be opt-in or clearly disclosed, even anonymized.
+- **Abuse & moderation at social scale.** A follow graph with discovery invites spam follows, harassment, and low-quality/NSFW link spam reaching Popular. Needs report/block, rate limits (today's in-memory limiter is per-instance — insufficient), and some moderation surface.
+- **Ranking.** "Popular" and even the following feed benefit from ranking beyond raw recency/count (decay, dedup, quality signals). That's an open-ended surface that tends to expand indefinitely.
+
+### Relationship to the other options
+Option D is essentially **Option C (per-user libraries) + a social graph + two derived feeds**. It can be built *on top of* C: ship personal libraries first, then add follows, then add Popular. It differs from the community model (A/B) in that the unit of sharing is the **person you follow**, not the **group you're in** — a fundamentally different social product, closer to Pocket-meets-Twitter than to a shared group feed.
+
+### Verdict
+**Highest product ambition, and effort comparable to or above Option A** — not because of multi-tenancy, but because a social graph, canonical-link dedup, a privacy/consent model, an anonymized-aggregate data path, and moderation are each substantial, and they interact. The anonymity requirement in Popular is the sharp edge: it must be enforced in the data layer (dedicated aggregate view/RPC + k-anonymity threshold), never just hidden in the UI. Best approached incrementally on top of a per-user (Option C) foundation, not as a big-bang rewrite of the current shared-community app.
+
+---
+
 ## Side by side
 
-| | A — You host multi-tenant | B — They self-host | C — Single-user tool |
-|---|---|---|---|
-| Engineering effort | High (tenancy + RLS everywhere) | Low–moderate (packaging, docs) | **Lowest** (remove social, tighten 1 policy) |
-| Data-leak risk | High — RLS is the only wall | Low — separate DBs | Low — per-user `auth.uid()` scoping |
-| Your ops burden | High (you run a service) | ~None | Depends (yours if hosted, theirs if self-host) |
-| Your legal/data burden | High (controller for others' data) | ~None | ~None (or just your own users) |
-| Reach for end users | Frictionless (sign up, make a group) | Needs someone technical per community | Frictionless (sign up, save links) |
-| Product shape | Group SaaS | Group, self-run | Personal tool |
-| Money | Chargeable SaaS | Give-away/OSS | Chargeable SaaS or OSS |
-| Closeness to today's code | Far | Near | **Nearest** |
+| | A — You host multi-tenant | B — They self-host | C — Single-user tool | D — Social follow feed |
+|---|---|---|---|---|
+| Engineering effort | High (tenancy + RLS everywhere) | Low–moderate (packaging, docs) | **Lowest** (remove social, tighten 1 policy) | **Highest** (graph + dedup + privacy + anon aggregate + moderation) |
+| Data-leak risk | High — RLS is the only wall | Low — separate DBs | Low — per-user `auth.uid()` scoping | High — follow-scoped RLS + anonymity of Popular both load-bearing |
+| Your ops burden | High (you run a service) | ~None | Depends (yours if hosted, theirs if self-host) | High (you run a social service) |
+| Your legal/data burden | High (controller for others' data) | ~None | ~None (or just your own users) | Highest (social data, discovery, moderation, consent) |
+| Reach for end users | Frictionless (sign up, make a group) | Needs someone technical per community | Frictionless (sign up, save links) | Frictionless (sign up, follow people) |
+| Product shape | Group SaaS | Group, self-run | Personal tool | Social network (Pocket-meets-Twitter) |
+| Money | Chargeable SaaS | Give-away/OSS | Chargeable SaaS or OSS | Ad/subscription social product |
+| Closeness to today's code | Far | Near | **Nearest** | Far (builds on C, adds a lot) |
 
 **Shared prerequisites (all already on the BACKLOG):** adopt migrations, custom SMTP, enforce the access model in code (not a dashboard toggle), and — for A/B group modes — the invite flow.
 
@@ -143,4 +182,4 @@ If any of this is ever pursued, the low-regret ordering:
 2. **Ship the cheap thing to learn from real users** — either **B** (let a couple of technical friends self-host and report back) or **C** (a personal-library mode, nearly free given the existing per-user layer).
 3. **Only build A if there's genuine demand *and* you want to run a service** — it carries real operational and legal weight.
 
-B and C can each grow toward A later (B → managed hosting = A; C → "create a community" = A). The reverse — unwinding multi-tenancy back into a simple app — is much harder. So don't build A speculatively.
+B and C can each grow toward A later (B → managed hosting = A; C → "create a community" = A). **Option D also grows out of C** — ship per-user libraries, then a follow graph, then the anonymized Popular feed, in that order; don't attempt D as a big-bang rewrite. The reverse — unwinding multi-tenancy or a social graph back into a simple app — is much harder. So don't build A or D speculatively; let real usage pull you toward the shape that fits.

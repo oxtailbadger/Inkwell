@@ -168,9 +168,11 @@ Tags are normalized to lowercase on insert. Display uses Tailwind's `capitalize`
 
 ---
 
-## Login has explicit Sign in / Sign up modes; only Sign up creates accounts
+## Sign in (`/login`) and Sign up (`/signup`) are separate routes; only Sign up creates accounts
 
-`app/login/page.tsx` has a `mode` toggle. **Sign in** passes `shouldCreateUser: false` — an unknown email errors instead of silently becoming a new account. **Sign up** passes `shouldCreateUser: true` and creates the account. The flag matters because, left unset, `signInWithOtp` would create a user for *any* email typed into either flow, dependent only on the unversioned "allow new signups" Supabase dashboard toggle.
+`/login` and `/signup` are two routes that both render `components/AuthForm.tsx` with a `mode` prop (`"signin"` / `"signup"`) — one component so they can't drift apart, two URLs so `/signup` is directly shareable with recruited testers. They differ only in copy and the `shouldCreateUser` flag, and cross-link to each other. **Sign in** passes `shouldCreateUser: false` — an unknown email errors instead of silently becoming a new account. **Sign up** passes `shouldCreateUser: true` and creates the account. The flag matters because, left unset, `signInWithOtp` would create a user for *any* email typed into either flow, dependent only on the unversioned "allow new signups" Supabase dashboard toggle.
+
+`/signup` must be added to the unauthenticated-allowlist in `lib/supabase/middleware.ts` (`updateSession`) alongside `/login` and `/api/auth` — the middleware redirects every other path to `/login` when there's no session, so a new `/signup` route would otherwise bounce a logged-out visitor straight back to `/login` and defeat the point of a shareable signup URL.
 
 Open sign-up was added 2026-07-10 to let recruited beta testers onboard themselves instead of the owner hand-adding each email in the dashboard. **This raises, not lowers, the urgency of the access-model work in `BACKLOG.md`:** every RLS read policy is still `using (true)`, so any successful signup can immediately read all shared articles. Open signup is only appropriate while the audience is still trusted-beta; before genuinely public exposure, the allowlist-in-code / invite-gated model must land (see BACKLOG "Enforce the access model in code"). Sign-up also requires "Allow new signups" enabled in Supabase Auth settings — the flag closes the client-side half, the dashboard setting is the server-side half.
 
