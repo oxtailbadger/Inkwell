@@ -22,6 +22,20 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      # Lint is a gate, not advice: it was left out of CI originally and
+      # drifted to 17 errors unnoticed. Several of its rules (react-hooks/*)
+      # catch real bugs, not style.
+      - name: Lint
+        run: npm run lint
+
+      # Production dependencies only — dev tooling advisories don't ship. High
+      # and above, so this stays a signal. Note it can go red with *no code
+      # change* when a new advisory lands; that's the point, but it means a red
+      # audit is not a regression in the PR — see DECISIONS.md before reaching
+      # for `npm audit fix --force` (its suggested fix is a downgrade).
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Tests
         run: npm test
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { QuillIcon } from "@/components/QuillIcon";
 import { useTheme } from "@/lib/useTheme";
+import { apiFetch } from "@/lib/api-client";
 
 const FAQ = [
   {
@@ -43,7 +44,7 @@ export default function ProfileClient({
     setSaved(false);
 
     try {
-      const res = await fetch("/api/profile", {
+      const res = await apiFetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ display_name: displayName }),
@@ -68,7 +69,7 @@ export default function ProfileClient({
     setFeedbackSent(false);
 
     try {
-      const res = await fetch("/api/feedback", {
+      const res = await apiFetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: feedback }),
@@ -162,9 +163,9 @@ export default function ProfileClient({
               <div className="text-sm text-muted mt-2">
                 {answer === "android-ios" ? (
                   <p>
-                    On Android, install Inkwell as an app (your browser's "Add to Home Screen" option), then
-                    share any article straight from your browser's share sheet — Inkwell will show up as a
-                    destination. iPhone doesn't support that kind of share sheet integration, so instead use{" "}
+                    On Android, install Inkwell as an app (your browser&apos;s &quot;Add to Home Screen&quot; option), then
+                    share any article straight from your browser&apos;s share sheet — Inkwell will show up as a
+                    destination. iPhone doesn&apos;t support that kind of share sheet integration, so instead use{" "}
                     <a
                       href="https://www.icloud.com/shortcuts/660b1b59532742bdaeb2466838f27cda"
                       target="_blank"
@@ -173,7 +174,7 @@ export default function ProfileClient({
                     >
                       this Shortcut
                     </a>{" "}
-                    — add it once, then share into Inkwell from any app's share sheet.
+                    — add it once, then share into Inkwell from any app&apos;s share sheet.
                   </p>
                 ) : (
                   <p>{answer}</p>

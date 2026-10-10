@@ -42,6 +42,17 @@ export function validateHttpUrl(value: unknown, { required = false } = {}): stri
   return value;
 }
 
+// For untrusted values we'd rather *drop* than reject — e.g. a link inside a
+// third-party RSS feed, where there's no caller to send a 400 to. Same rules as
+// validateHttpUrl, but returns null instead of throwing.
+export function safeHttpUrl(value: unknown): string | null {
+  try {
+    return validateHttpUrl(value);
+  } catch {
+    return null;
+  }
+}
+
 export function validateText(value: unknown, maxLength: number, fieldName: string): string | null {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value !== "string") throw new ValidationError(`${fieldName} must be text`);

@@ -29,7 +29,7 @@ export default function Error({
             Something spilled
           </h1>
           <p className="text-sm text-muted mt-2">
-            That page ran into a problem loading. It's usually temporary.
+            That page ran into a problem loading. It&apos;s usually temporary.
           </p>
         </div>
 

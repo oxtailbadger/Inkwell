@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { apiFetch } from "@/lib/api-client";
 
 const PRESET_TAGS = [
   "Politics",
@@ -24,7 +25,7 @@ type OGData = {
 // data is null when metadata couldn't be fetched; manual means the site
 // blocks automated previews and the user should fill in details themselves
 async function requestMetadata(url: string): Promise<{ data: OGData | null; manual: boolean }> {
-  const res = await fetch("/api/fetch-og", {
+  const res = await apiFetch("/api/fetch-og", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url }),
@@ -71,7 +72,7 @@ export function SubmitArticle({
   // archive field. Fired alongside the preview fetch, never blocks it.
   async function checkArchive(articleUrl: string) {
     try {
-      const res = await fetch(`/api/archive-check?url=${encodeURIComponent(articleUrl)}`);
+      const res = await apiFetch(`/api/archive-check?url=${encodeURIComponent(articleUrl)}`);
       const body = await res.json();
       if (res.ok && body.found && body.archive_url && !archiveUrl) {
         setArchiveUrl(body.archive_url);
@@ -150,7 +151,7 @@ export function SubmitArticle({
         };
       }
 
-      const res = await fetch("/api/articles", {
+      const res = await apiFetch("/api/articles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

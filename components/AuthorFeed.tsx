@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getHostname } from "@/lib/url";
+import { apiFetch } from "@/lib/api-client";
 
 type AuthorArticle = {
   url: string;
@@ -70,7 +71,7 @@ export function AuthorFeed() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    fetch("/api/author-articles")
+    apiFetch("/api/author-articles")
       .then((r) => {
         if (!r.ok) throw new Error();
         return r.json();

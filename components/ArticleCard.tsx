@@ -4,9 +4,10 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import type { Article } from "@/lib/articles";
 import { getHostname } from "@/lib/url";
+import { apiFetch } from "@/lib/api-client";
 
 async function patchArticleState(articleId: string, action: string) {
-  const res = await fetch("/api/article-state", {
+  const res = await apiFetch("/api/article-state", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ article_id: articleId, action }),
@@ -44,17 +45,38 @@ export function ArticleCard({
 
   // Local state is an optimistic overlay between refetches; grid items keep
   // their key across refetches, so useState initial values alone go stale.
-  // These only fire when a refetch actually delivers different values —
-  // an in-flight optimistic toggle isn't clobbered, because a successful
-  // toggle never changes the prop until the next fetch.
-  useEffect(() => {
+  // Re-sync only when a refetch actually delivers different values — an
+  // in-flight optimistic toggle isn't clobbered, because a successful toggle
+  // never changes the prop until the next fetch.
+  //
+  // Done by adjusting state *during render* (React's documented alternative to
+  // "sync props to state in an effect") rather than in useEffect: the effect
+  // version renders once with the stale overlay, then again with the fresh
+  // one — a visible flicker of the old Nod/Saved state — and is what the
+  // react-hooks/set-state-in-effect lint rule exists to flag.
+  const [seenServerState, setSeenServerState] = useState({
+    saved: article.saved,
+    read: article.read,
+    nodCount: article.nod_count,
+    hasNodded: article.user_has_nodded,
+  });
+  if (
+    seenServerState.saved !== article.saved ||
+    seenServerState.read !== article.read ||
+    seenServerState.nodCount !== article.nod_count ||
+    seenServerState.hasNodded !== article.user_has_nodded
+  ) {
+    setSeenServerState({
+      saved: article.saved,
+      read: article.read,
+      nodCount: article.nod_count,
+      hasNodded: article.user_has_nodded,
+    });
     setSaved(article.saved);
     setRead(article.read);
-  }, [article.saved, article.read]);
-  useEffect(() => {
     setNodCount(article.nod_count);
     setHasNodded(article.user_has_nodded);
-  }, [article.nod_count, article.user_has_nodded]);
+  }
 
   const isOwner = article.submitted_by === currentUserId;
   const domain = getHostname(article.url) ?? "";
@@ -74,7 +96,7 @@ export function ArticleCard({
     setNodCount((prev) => hasNodded ? prev - 1 : prev + 1);
 
     try {
-      const res = await fetch("/api/nods", {
+      const res = await apiFetch("/api/nods", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ article_id: article.id }),

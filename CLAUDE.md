@@ -10,7 +10,7 @@ News article sharing app for a small friend group (~10 users).
 
 ## Key files
 - `app/feed/FeedClient.tsx` — main feed page (sidebar, articles grid, author feed); first page is server-rendered via page.tsx, tag filter lives in ?tag= URL param
-- `lib/articles.ts` — shared article fetch + enrichment (cursor pagination, nod counts, submitter names, per-user saved/read/dismissed state) plus `fetchAllTags` for the tag-filter bar; used by both the API route and the server page
+- `lib/articles.ts` — shared article fetch + enrichment (cursor pagination, nod counts, submitter names, per-user saved/read/dismissed state) plus `fetchAllTags` for the tag-filter bar; used by both the API route and the server page. **All feed filtering happens in the `feed_articles()` Postgres function** (`supabase/launch-hardening.sql`), called via `rpc` — never reintroduce ID lists in the request URL (see DECISIONS.md)
 - `lib/validate.ts` — server-side input validation (http/https-only URLs, length caps); wire new writable fields through this
 - `lib/api-errors.ts` — `dbErrorResponse` maps DB errors to safe client messages; use for any route touching the database
 - `lib/url.ts` — `getHostname()`, the single shared URL-hostname parser (ArticleCard, AuthorFeed)
@@ -18,6 +18,8 @@ News article sharing app for a small friend group (~10 users).
 - `lib/paywall.ts` — RSS paywall heuristics (extracted from author-articles route for testability)
 - `lib/logger.ts` — `logInfo`/`logWarn`/`logError`, enforces the `[route-name]` log-prefix convention; route through this instead of calling `console.*` directly
 - `lib/useTheme.ts` — shared `{ theme, setTheme }` hook, used by `ThemeToggle` and the profile page's theme selector (see DECISIONS.md)
+- `lib/api-client.ts` — `apiFetch()`: use it instead of `fetch` for every client call to our own `/api/*`. A 401 (session ended) sends the user to `/login?error=expired`; other statuses/network errors pass through untouched
+- `lib/auth-messages.ts` — fixed `?error=` code → login-page notice map; unknown codes are ignored (never reflect the query string)
 - `instrumentation.ts` — validates required env vars at server boot (Next's `register()` hook), fails fast with a clear message instead of a cryptic `process.env.X!` crash
 - `.github/workflows/ci.yml` — typecheck + tests + build on push/PR
 - `app/api/articles/route.ts` — GET (paginated, `?cursor=&limit=`) /POST/DELETE articles
@@ -45,6 +47,7 @@ News article sharing app for a small friend group (~10 users).
 - `supabase/authors-schema.sql` — authors table + seed data
 - `supabase/profiles-schema.sql` — profiles table (display names) + signup trigger + backfill
 - `supabase/feedback-schema.sql` — feedback table (insert-only RLS, no select policy — see DECISIONS.md)
+- `supabase/launch-hardening.sql` — idempotent patch run last: `feed_articles()` (the feed's filtering/pagination), `feedback` insert policy bound to the JWT email, `article_state(user_id)` index, `handle_new_user()` EXECUTE revoked. **Run it before deploying code that calls `feed_articles()`**
 - `supabase/content-constraints.sql` — `CHECK` constraints mirroring `lib/validate.ts` limits (the API is not the only way into the DB — see DECISIONS.md); run last, safe to re-run
 
 See also: `DECISIONS.md` (non-obvious choices and gotchas), `BACKLOG.md` (prioritized todo), `MULTI_COMMUNITY.md` (exploratory design notes on scaling past one community).
@@ -59,5 +62,8 @@ See also: `DECISIONS.md` (non-obvious choices and gotchas), `BACKLOG.md` (priori
 - Tests are logic-level, not DOM-render: flat files in `__tests__/` (not colocated), API routes are called directly with a constructed `NextRequest`, page.tsx server components are called directly as async functions (mocking `next/navigation`'s `redirect` to throw, matching prod control flow). No `@testing-library/react`/DOM rendering anywhere — see DECISIONS.md before introducing one.
 - Supabase is mocked per-test with hand-built chainable objects matching the exact query shape the code under test issues (`vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }))`, then `vi.mocked(createClient).mockResolvedValue(fakeSupabase)` per test) — not a generic Supabase test client. `__tests__/nods-api.test.ts` or `__tests__/article-state-api.test.ts` are the clearest examples to copy from.
 - **Input limits live in two places that must change together:** `lib/validate.ts` (friendly API errors) and `supabase/content-constraints.sql` (what a direct PostgREST write can't skip). `__tests__/db-constraints.test.ts` fails if they drift. A new writable user-text column needs both, and a re-run of the SQL against the live DB.
+- **SQL needs real-database tests.** Mocked-Supabase tests can't see RLS, constraints, triggers, or `feed_articles()`. `__tests__/db-*.test.ts` run the actual `supabase/*.sql` files in-process (PGlite) via `__tests__/helpers/pg.ts` — `asUser()` runs a block under `set role authenticated` with chosen JWT claims, so RLS is exercised for real. New SQL ships with a `db-*.test.ts`; temporarily break the SQL to prove the tests fail. This is SQL-only: it is not PostgREST. See DECISIONS.md.
+- Client code calls our API through `apiFetch` (above), and never `eslint-disable`s a `react-hooks/*` rule — lint is a CI gate and those rules flagged real design problems (DECISIONS.md, "Lint is a CI gate").
 - Run tests: `npm test`
 - Type check: `./node_modules/.bin/tsc --noEmit`
+- Lint: `npm run lint` (CI fails on any error). CI also runs `npm audit --omit=dev --audit-level=high`; don't `npm audit fix --force` (DECISIONS.md).

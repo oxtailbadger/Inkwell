@@ -8,7 +8,15 @@ import { QuillIcon } from "@/components/QuillIcon";
 // Shared by the /login (signin) and /signup routes — same markup and magic-link
 // flow, differing only in `shouldCreateUser` and copy. Kept as one component so
 // the two pages can't visually drift apart.
-export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
+export function AuthForm({
+  mode,
+  notice,
+}: {
+  mode: "signin" | "signup";
+  // Why the user is seeing this page again (e.g. their link failed or their
+  // session ended). Already mapped to safe text by lib/auth-messages.ts.
+  notice?: string | null;
+}) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -54,6 +62,15 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
             Articles worth reading, shared by friends.
           </p>
         </div>
+
+        {notice && !sent && (
+          <div
+            role="alert"
+            className="mb-5 rounded-control bg-danger-tint border border-danger-border px-4 py-3 text-sm text-danger"
+          >
+            {notice}
+          </div>
+        )}
 
         {sent ? (
           <div className="py-4 text-center">

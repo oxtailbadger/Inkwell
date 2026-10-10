@@ -40,16 +40,10 @@ function makeSupabaseMock({
   const selectAfterInsert = vi.fn(() => ({ single }));
   const insert = vi.fn(() => ({ select: selectAfterInsert }));
 
-  // Articles listing chain: select("*").order(...).order(...).limit(...)[.contains(...)][.or(...)]
-  // then awaited — a fluent object where every hop returns itself, thenable at the end.
-  const articlesResult = { data: selectData, error: selectError };
-  const chain: Record<string, unknown> = {};
-  for (const method of ["order", "limit", "contains", "or", "not", "in"]) {
-    chain[method] = vi.fn(() => chain);
-  }
-  chain.then = (resolve: (v: typeof articlesResult) => void) =>
-    Promise.resolve(articlesResult).then(resolve);
-  const { order, contains } = chain as { order: ReturnType<typeof vi.fn>; contains: ReturnType<typeof vi.fn> };
+  // The feed page comes from the feed_articles() Postgres function (all
+  // filtering is in SQL — see supabase/launch-hardening.sql), so the listing is
+  // an rpc() call rather than a chained query on `articles`.
+  const rpc = vi.fn().mockResolvedValue({ data: selectData, error: selectError });
 
   // .in() is used for the article_nod_counts / nods sub-queries — empty by default
   const inFn = vi.fn().mockResolvedValue({ data: [], error: null });
@@ -58,11 +52,10 @@ function makeSupabaseMock({
   // (.eq("id",...).maybeSingle()) and the per-user nods query
   // (.eq("user_id",...).in(...)) — both methods live on the same returned
   // object since which one gets called depends on the test scenario.
-  // .eq() also serves article_state's dismissed-exclusion pre-query
-  // (.eq("user_id",...).eq("dismissed",true)) — empty by default, same as
-  // the nods/article_nod_counts .in() branches below.
+  // The per-page article_state merge is (.eq("user_id",...).in(...)) —
+  // empty by default, same as the nods/article_nod_counts .in() branches.
   const selectEq = vi.fn(() => ({ maybeSingle, in: inFn, eq: inFn }));
-  const select = vi.fn(() => ({ ...chain, in: inFn, eq: selectEq }));
+  const select = vi.fn(() => ({ in: inFn, eq: selectEq }));
 
   const deleteEq2 = vi.fn().mockResolvedValue({ error: deleteError });
   const deleteEq1 = vi.fn(() => ({ eq: deleteEq2 }));
@@ -75,7 +68,8 @@ function makeSupabaseMock({
       }),
     },
     from: vi.fn(() => ({ insert, select, delete: del })),
-    _mocks: { insert, select, single, order, del, maybeSingle, limit: chain.limit as ReturnType<typeof vi.fn> },
+    rpc,
+    _mocks: { insert, select, single, del, maybeSingle, rpc },
   };
 }
 
@@ -228,7 +222,30 @@ describe("GET /api/articles", () => {
     const res = await GET(makeRequest("GET", undefined, { limit: "9999" }));
     expect(res.status).toBe(200);
     // limit+1 rows are requested to detect a next page — 50 (MAX_PAGE_SIZE) + 1, not 9999 + 1
-    expect(supabase._mocks.limit).toHaveBeenCalledWith(51);
+    expect(supabase._mocks.rpc).toHaveBeenCalledWith(
+      "feed_articles",
+      expect.objectContaining({ p_limit: 51 })
+    );
+  });
+
+  it("forwards the tag and state filters to the database function", async () => {
+    const supabase = makeSupabaseMock();
+    vi.mocked(createClient).mockResolvedValue(supabase as never);
+    await GET(makeRequest("GET", undefined, { tag: "tech", saved: "1", read: "1", dismissed: "1" }));
+    expect(supabase._mocks.rpc).toHaveBeenCalledWith(
+      "feed_articles",
+      expect.objectContaining({ p_tag: "tech", p_saved: true, p_read: true, p_dismissed: true })
+    );
+  });
+
+  it("returns 500 with a friendly message when the database function fails", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeSupabaseMock({ selectError: { message: "function public.feed_articles does not exist" } }) as never
+    );
+    const res = await GET(makeRequest("GET"));
+    const body = await res.json();
+    expect(res.status).toBe(500);
+    expect(body.error).not.toContain("feed_articles");
   });
 
   it("reads ?saved=1 and returns a valid (possibly empty) page rather than erroring", async () => {

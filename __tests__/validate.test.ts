@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ValidationError, validateHttpUrl, validateTags, validateText } from "@/lib/validate";
+import { ValidationError, safeHttpUrl, validateHttpUrl, validateTags, validateText } from "@/lib/validate";
 
 describe("validateHttpUrl", () => {
   it("accepts http and https URLs", () => {
@@ -74,5 +74,26 @@ describe("validateTags", () => {
 
   it("throws on an empty-string tag", () => {
     expect(() => validateTags([""])).toThrow(ValidationError);
+  });
+});
+
+describe("safeHttpUrl", () => {
+  it("returns an http(s) URL unchanged", () => {
+    expect(safeHttpUrl("https://example.com/a?b=1")).toBe("https://example.com/a?b=1");
+    expect(safeHttpUrl("http://example.com")).toBe("http://example.com");
+  });
+
+  it.each([
+    ["javascript:", "javascript:alert(1)"],
+    ["data:", "data:text/html,<script>1</script>"],
+    ["ftp:", "ftp://example.com/x"],
+    ["not a URL", "not a url"],
+    ["empty string", ""],
+    ["null", null],
+    ["undefined", undefined],
+    ["a non-string", 42],
+    ["over the length limit", "https://example.com/" + "a".repeat(2001)],
+  ])("returns null (never throws) for %s", (_label, value) => {
+    expect(safeHttpUrl(value)).toBeNull();
   });
 });

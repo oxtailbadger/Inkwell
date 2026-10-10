@@ -7,10 +7,20 @@ const mockUser = { id: "user-123", email: "test@example.com" };
 // vi.hoisted is required — vi.mock is hoisted above normal declarations, and
 // the route module (with its top-level `new Parser()`) loads before this
 // file's const initializers would otherwise run.
-const { parseURL } = vi.hoisted(() => ({ parseURL: vi.fn() }));
+//
+// `captured` records the options the route passes to `new Parser()`. It can't
+// be a vi.fn() spy: the constructor runs once at import time, and the
+// beforeEach clearAllMocks below would wipe the call before any test reads it.
+const { parseURL, captured } = vi.hoisted(() => ({
+  parseURL: vi.fn(),
+  captured: { options: undefined as { timeout?: number } | undefined },
+}));
 vi.mock("rss-parser", () => ({
   default: class MockParser {
     parseURL = parseURL;
+    constructor(options?: { timeout?: number }) {
+      captured.options = options;
+    }
   },
 }));
 
@@ -82,6 +92,35 @@ describe("GET /api/author-articles", () => {
       "Free 2",
       "Free 3",
     ]);
+  });
+
+  it("constructs the feed parser with a short timeout, so one hung publisher can't stall the card", () => {
+    // rss-parser's own default is 60 s; the route must override it
+    expect(captured.options?.timeout).toBeGreaterThan(0);
+    expect(captured.options?.timeout).toBeLessThanOrEqual(10_000);
+  });
+
+  it("only returns http(s) links: drops javascript:, data:, and missing links without using up the cap", async () => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock({ authors: [benAuthor] }) as never);
+    parseURL.mockResolvedValue({
+      items: [
+        { title: "Evil js", link: "javascript:alert(1)", contentSnippet: FREE_DESC },
+        { title: "Evil data", link: "data:text/html,<script>1</script>", contentSnippet: FREE_DESC },
+        { title: "No link at all", contentSnippet: FREE_DESC },
+        { title: "Empty link", link: "", contentSnippet: FREE_DESC },
+        { title: "Good 1", link: "https://s.com/1", contentSnippet: FREE_DESC },
+        { title: "Good 2", link: "http://s.com/2", contentSnippet: FREE_DESC },
+        { title: "Good 3", link: "https://s.com/3", contentSnippet: FREE_DESC },
+        { title: "Good 4 (past the cap)", link: "https://s.com/4", contentSnippet: FREE_DESC },
+      ],
+    });
+
+    const res = await GET();
+    const body = await res.json();
+
+    // The four unusable items must not occupy any of the 3 slots
+    expect(body[0].articles.map((a: { title: string }) => a.title)).toEqual(["Good 1", "Good 2", "Good 3"]);
+    expect(body[0].articles.every((a: { url: string }) => /^https?:\/\//.test(a.url))).toBe(true);
   });
 
   it("passes through author identity fields including site_icon_url", async () => {

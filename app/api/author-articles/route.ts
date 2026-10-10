@@ -6,8 +6,16 @@ import { dbErrorResponse } from "@/lib/api-errors";
 // may only export route handlers)
 import { isPaywalled, type RSSItem } from "@/lib/paywall";
 import { logInfo, logWarn, logError } from "@/lib/logger";
+import { safeHttpUrl } from "@/lib/validate";
 
-const parser = new Parser();
+// rss-parser's default is 60 s, and the authors are fetched in parallel with
+// Promise.all — so one hung publisher used to hold the whole Authors card (and
+// the function invocation) hostage for a minute. A healthy feed answers in well
+// under a second; 5 s is generous, and a timeout lands in the per-author catch
+// below, which degrades just that author to "no articles".
+const FEED_TIMEOUT_MS = 5000;
+
+const parser = new Parser({ timeout: FEED_TIMEOUT_MS });
 
 export async function GET() {
   const supabase = await createClient();
@@ -45,12 +53,25 @@ export async function GET() {
           );
         }
 
-        const articles = free.slice(0, 3).map((item) => ({
-          url: item.link ?? "",
-          title: item.title ?? null,
-          description: item.contentSnippet?.slice(0, 200) ?? null,
-          published_at: item.pubDate ?? null,
-        }));
+        // item.link comes straight from a third-party feed and is rendered as
+        // an <a href>. React 19 blocks javascript: URLs, but that's the
+        // framework's last line of defence, not ours — keep only http(s)
+        // links, and drop items with no usable link at all (they used to
+        // render as href="" and collide on the list key).
+        const articles = free
+          .flatMap((item) => {
+            const url = safeHttpUrl(item.link);
+            if (!url) return [];
+            return [
+              {
+                url,
+                title: item.title ?? null,
+                description: item.contentSnippet?.slice(0, 200) ?? null,
+                published_at: item.pubDate ?? null,
+              },
+            ];
+          })
+          .slice(0, 3);
 
         return {
           id: author.id,

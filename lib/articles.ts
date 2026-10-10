@@ -36,10 +36,12 @@ const ISO_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-
 export function decodeCursor(cursor: string): { created_at: string; id: string } {
   try {
     const parsed = JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
-    // Shape validation isn't enough: both values get interpolated into a
-    // PostgREST .or() filter string below, so a hand-crafted cursor could
-    // otherwise inject filter syntax. The API is the trust boundary (see
-    // lib/validate.ts) — require a real UUID and a real ISO timestamp.
+    // Both values are passed to feed_articles() as typed parameters (uuid /
+    // timestamptz), so a malformed one can't inject filter syntax — but it
+    // would make Postgres throw, surfacing as a 500 for what is really a bad
+    // request. The API is the trust boundary for cursors (see lib/validate.ts
+    // for the broader picture): require a real UUID and a real ISO timestamp
+    // so the caller gets a clean 400 instead.
     if (typeof parsed.created_at !== "string" || typeof parsed.id !== "string") throw new Error();
     if (!UUID_RE.test(parsed.id) || !ISO_TIMESTAMP_RE.test(parsed.created_at)) throw new Error();
     return parsed;
@@ -62,30 +64,18 @@ export async function fetchAllTags(supabase: SupabaseClient): Promise<string[]> 
   return [...new Set((data ?? []).flatMap((row) => (row.tags as string[]) ?? []))].sort();
 }
 
-// Article IDs where article_state.<column> is true for this user — the
-// shared shape behind the dismissed-exclusion lookup and the Saved/Read/
-// Dismissed "only" filters below.
-async function fetchStateIds(
-  supabase: SupabaseClient,
-  userId: string,
-  column: "saved" | "read" | "dismissed"
-): Promise<string[]> {
-  const { data } = await supabase
-    .from("article_state")
-    .select("article_id")
-    .eq("user_id", userId)
-    .eq(column, true);
-  return (data ?? []).map((r) => r.article_id as string);
-}
-
-function intersectIdLists(lists: string[][]): string[] {
-  return lists.reduce((acc, list) => acc.filter((id) => list.includes(id)));
-}
-
 // Shared by GET /api/articles and the server-rendered feed page.
-// Fetches one page of articles (optionally filtered by tag) and enriches
-// each with nod counts, the current user's nod state, and the submitter's
-// display name.
+// Fetches one page of articles and enriches each with nod counts, the current
+// user's nod state, the submitter's display name, and the user's own
+// saved/read/dismissed flags.
+//
+// All filtering (tag, saved/read/dismissed, cursor) happens inside Postgres in
+// the feed_articles() function — see supabase/launch-hardening.sql for the
+// exact semantics. This used to pre-fetch the caller's dismissed/saved/read
+// article IDs and send them back through the request URL, which has a hard
+// length limit and so failed outright for users with a few hundred dismissed
+// articles. Nothing here grows with a user's history any more: every query
+// below is bounded by the page size.
 export async function fetchEnrichedArticles(
   supabase: SupabaseClient,
   userId: string,
@@ -105,54 +95,20 @@ export async function fetchEnrichedArticles(
     }
   }
 
-  // Articles this user has dismissed are excluded from the feed at the
-  // query level (not filtered client-side) so page-size math stays correct
-  // as pages fill in — a small, bounded lookup, same batching idiom as the
-  // articleIds/submitterIds queries below. Under the Dismissed view this
-  // same list is repurposed as an inclusion filter instead (see below), not
-  // fetched twice.
-  const dismissedIds = await fetchStateIds(supabase, userId, "dismissed");
-
-  // Saved/Read/Dismissed "only" views: each is a second bounded lookup, only
-  // run when requested, intersected together when more than one is active
-  // (e.g. Saved + Read shows articles that are both). Dismissed is the odd
-  // one out — normally excluded (below), but under dismissedOnly the same
-  // ID list becomes what we require instead of what we exclude, since
-  // "show only what I dismissed" and "hide what I dismissed" are opposites
-  // that can't both apply.
-  const onlyIdLists: string[][] = [];
-  if (dismissedOnly) onlyIdLists.push(dismissedIds);
-  if (savedOnly) onlyIdLists.push(await fetchStateIds(supabase, userId, "saved"));
-  if (readOnly) onlyIdLists.push(await fetchStateIds(supabase, userId, "read"));
-
-  let onlyIds: string[] | null = null;
-  if (onlyIdLists.length > 0) {
-    onlyIds = onlyIdLists.length === 1 ? onlyIdLists[0] : intersectIdLists(onlyIdLists);
-    if (onlyIds.length === 0) return { articles: [], nextCursor: null, error: null };
-  }
-
-  // Order by created_at then id (both descending) so id can break ties
-  // between same-timestamp rows — needed for a stable cursor. Fetch one
-  // extra row past `limit` purely to know whether a next page exists.
-  let query = supabase
-    .from("articles")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(limit + 1);
-
-  if (tag) query = query.contains("tags", [tag]);
-  if (onlyIds) query = query.in("id", onlyIds);
-  if (decoded) {
-    query = query.or(
-      `created_at.lt.${decoded.created_at},and(created_at.eq.${decoded.created_at},id.lt.${decoded.id})`
-    );
-  }
-  if (!dismissedOnly && dismissedIds.length > 0) {
-    query = query.not("id", "in", `(${dismissedIds.join(",")})`);
-  }
-
-  const { data: page, error } = await query;
+  // Fetch one extra row past `limit` purely to know whether a next page
+  // exists. Ordering is (created_at desc, id desc) so id breaks ties between
+  // same-timestamp rows, which a stable cursor needs. The caller's identity
+  // comes from their session inside the function (auth.uid()), not from a
+  // parameter, so a request can't ask for another user's state.
+  const { data: page, error } = await supabase.rpc("feed_articles", {
+    p_tag: tag,
+    p_saved: Boolean(savedOnly),
+    p_read: Boolean(readOnly),
+    p_dismissed: Boolean(dismissedOnly),
+    p_before_created_at: decoded?.created_at ?? null,
+    p_before_id: decoded?.id ?? null,
+    p_limit: limit + 1,
+  });
   if (error) {
     logError("fetchEnrichedArticles", error.message);
     return { articles: null, nextCursor: null, error: "Could not load articles. Please try again." };
@@ -164,13 +120,14 @@ export async function fetchEnrichedArticles(
   const last = articles[articles.length - 1];
   const nextCursor = hasMore && last ? encodeCursor(last.created_at, last.id) : null;
 
-  const articleIds = articles.map((a) => a.id);
-  const submitterIds = [...new Set(articles.map((a) => a.submitted_by))];
+  const articleIds = articles.map((a: { id: string }) => a.id);
+  const submitterIds = [...new Set(articles.map((a: { submitted_by: string }) => a.submitted_by))];
 
   // Nod counts come pre-aggregated from the article_nod_counts view
   // (Postgres does the count(*) group by, not a JS loop over every nod);
   // whether the current user has nodded is still inherently per-user, so
-  // that stays a separate scoped query.
+  // that stays a separate scoped query. The state query is bounded to this
+  // page's ids, not the user's whole history.
   const [{ data: nodCounts }, { data: userNods }, { data: profiles }, { data: stateRows }] = await Promise.all([
     articleIds.length
       ? supabase.from("article_nod_counts").select("article_id, nod_count").in("article_id", articleIds)
@@ -194,7 +151,7 @@ export async function fetchEnrichedArticles(
   );
   const defaultState = { saved: false, read: false, dismissed: false };
 
-  const enriched: Article[] = articles.map((article) => ({
+  const enriched: Article[] = articles.map((article: Article) => ({
     ...article,
     nod_count: nodCountById.get(article.id) ?? 0,
     user_has_nodded: noddedSet.has(article.id),

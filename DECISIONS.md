@@ -210,6 +210,8 @@ The emailed **OTP code entry was removed** at the same time: the Supabase email 
 
 ## Save / Read / Dismiss: one table + one action-discriminated endpoint, dismiss excluded server-side
 
+> **Implementation superseded 2026-10-10.** The ID pre-lookups, `.not("id","in",…)` / `.in("id",…)` filters, `fetchStateIds` and `intersectIdLists` described below no longer exist: filtering now happens in the `feed_articles()` Postgres function. **The behaviour described here is unchanged and is what that function implements** (and what `__tests__/db-feed-articles.test.ts` pins). See "Feed filtering runs in Postgres" at the end of this file.
+
 Per-user article state (`saved`, `read`, `dismissed` — 2026-07-09) lives in one `article_state` table (`supabase/article-state-schema.sql`), composite PK `(article_id, user_id)` like `nods`, but with RLS scoped to `auth.uid() = user_id` on every policy (including `select`) — unlike `nods`, this state is private, not a public count. It also has an `update` policy that `nods` doesn't need, since this table upserts once and then flips individual columns rather than being inserted-or-deleted as a whole row.
 
 **One `PATCH /api/article-state` endpoint, action-discriminated** (`{ article_id, action: "save"|"unsave"|"read"|"unread"|"dismiss"|"undismiss" }`) instead of three near-duplicate routes or a generic multi-field PATCH. The explicit action names document that dismiss/undismiss is an asymmetric flow (paired with a client-side undo window) rather than just another boolean flip. The route sets `updated_at` explicitly in every upsert payload — a partial upsert only writes the columns it names, so the column's DB default fires on first insert only and would otherwise freeze at creation time.
@@ -230,6 +232,8 @@ The Broadsheet handoff specifies one literal warm red, `#a13f2e`, for destructiv
 
 ## "Saved" filter is a standalone toggle, ANDed with the tag filter — not mutually exclusive
 
+> **Implementation superseded 2026-10-10.** The ID pre-lookups, `.not("id","in",…)` / `.in("id",…)` filters, `fetchStateIds` and `intersectIdLists` described below no longer exist: filtering now happens in the `feed_articles()` Postgres function. **The behaviour described here is unchanged and is what that function implements** (and what `__tests__/db-feed-articles.test.ts` pins). See "Feed filtering runs in Postgres" at the end of this file.
+
 `FeedClient.tsx`'s `?saved=1` URL param (2026-07-09, closes the "Saved filter/view" backlog item) is independent of `?tag=`, unlike "All" vs. a tag which are mutually exclusive with each other. Clicking the 🔖 Saved pill toggles `saved=1` on/off while preserving whatever tag is active, so "Saved articles tagged Tech" is a reachable state, not just "Saved" or "Tech" alone. The tag-pill row and the Saved toggle are visually separate rows for this reason — they read as two independent filter dimensions, not one row of mutually-exclusive options.
 
 `fetchEnrichedArticles`'s `savedOnly` option looks up the caller's saved article IDs first (same bounded-lookup idiom as the dismissed-exclusion filter) and short-circuits to an empty result *without querying the articles table at all* when nothing is saved — cheaper than running the full paginated query only to filter it down to nothing. When something is saved, the IDs are applied via `.in("id", savedIds)` alongside the existing tag/dismissed/cursor filters, so pagination, dismiss-exclusion, and the saved filter all compose correctly together (e.g. a dismissed-and-saved article still doesn't show up in the Saved view — dismissed wins, see the entry above).
@@ -246,6 +250,8 @@ The header avatar (a first-letter monogram linking to `/profile`, `app/feed/Feed
 
 ## Theme read/write extracted into `lib/useTheme.ts`, shared by the header toggle and the profile settings
 
+> **Implementation superseded 2026-10-10.** `useTheme` is now built on `useSyncExternalStore` (subscribing to the `data-theme` attribute and `storage` events) instead of `useState` + `useEffect`, so every consumer reads one source and there is no "default to light, flip in an effect" render. The behaviour and the localStorage key are unchanged. See "Lint is a CI gate" below.
+
 `ThemeToggle.tsx` (header, a single "click to switch" button) and the profile page's theme selector (an explicit Light/Dark segmented control — a better fit once the user is looking at a settings page, not just a toolbar) need the identical underlying behavior: read `data-theme` from the DOM in an effect, write it back plus `localStorage["inkwell-theme"]` on change, wrapped in try/catch for storage-disabled environments. Rather than duplicate that logic, it's a small hook (`useTheme`) both components call — `ThemeToggle` is now a thin two-line consumer. Both surfaces read/write the exact same key, so toggling in one place is immediately reflected if the other is opened next (they're never mounted simultaneously — different routes — so no cross-component sync was needed, just shared logic).
 
 ---
@@ -257,6 +263,8 @@ No accordion/modal/dropdown component existed anywhere in this codebase before t
 ---
 
 ## Read and Dismissed views (2026-07-10) generalized the Saved filter's plumbing instead of copy-pasting it
+
+> **Implementation superseded 2026-10-10.** The ID pre-lookups, `.not("id","in",…)` / `.in("id",…)` filters, `fetchStateIds` and `intersectIdLists` described below no longer exist: filtering now happens in the `feed_articles()` Postgres function. **The behaviour described here is unchanged and is what that function implements** (and what `__tests__/db-feed-articles.test.ts` pins). See "Feed filtering runs in Postgres" at the end of this file.
 
 Adding `?read=1` and `?dismissed=1` alongside the existing `?saved=1` was the point at which three near-identical "fetch article IDs where `article_state.<column>` is true, short-circuit to empty if none" blocks would have existed in `fetchEnrichedArticles`. Extracted into one `fetchStateIds(supabase, userId, column)` helper instead. All three toggles are independent and ANDed together (not mutually exclusive with each other or with the tag filter) — matching how Saved already worked, per the explicit ask to follow that convention. When more than one is active, their ID lists are intersected (`intersectIdLists`), not unioned, so "Saved + Read" means articles that are both, not either — a friend-group feed is small enough that array `.includes()` intersection is fine; this would want a real join if it ever needed to scale.
 
@@ -331,7 +339,7 @@ A few decisions worth knowing before touching it:
 
 Verified by applying the real schema files plus the constraints to an in-process Postgres (PGlite, with `auth.users`/`auth.uid()` stubbed) and attacking it: 41 cases covering each rejection, each boundary (exactly-at-limit accepted), pre-existing violating rows surviving, idempotent re-runs, and a control proving the old trigger would have broken signup. That harness is throwaway and not in the repo; the Vitest drift test is the permanent guard. RLS itself is still not exercised by any test (see MULTI_COMMUNITY.md).
 
-Not covered here, deliberately: attribution on `feedback`. A direct insert can set `email` to any string (only `user_id` is checked by RLS). Closing it means an `auth.jwt() ->> 'email'` check in the policy; left alone to avoid risking the feedback box that was tested end to end.
+Follow-up the same day: attribution on `feedback` is now closed too — see "What `launch-hardening.sql` contains" below.
 
 ---
 
@@ -341,7 +349,7 @@ Not covered here, deliberately: attribution on `feedback`. A direct insert can s
 
 The same change fixed a latent prefix bug, found by the test written for it: the public-path check was `pathname.startsWith("/api/auth")`, and `/api/author-articles` literally starts with those characters — so that one route had been silently exempt from the middleware gate. It was never a data leak (the route does its own `getUser()` and returned 401), which is exactly why nothing noticed: per-route auth checks were hiding a broken middleware. Public paths are now matched as whole segments (`/login`, `/signup`, `/api/auth` — exact match or `<path>/…`), and `__tests__/middleware.test.ts` pins the lookalikes (`/api/author-articles`, `/api/authorize`, `/login-help`, `/signups`). **Any new public route goes in `PUBLIC_PATHS`, not in an ad-hoc `startsWith`.**
 
-The client doesn't yet treat a 401 specially (it shows the route's `"Unauthorized"` message); redirecting to `/login` on 401 would be a small follow-up.
+Client side (added the same day): every call from client code to our own `/api/*` goes through `lib/api-client.ts`'s `apiFetch()`. On a 401 it hard-navigates to `/login?error=expired` and throws `SessionExpiredError`; every other status and network errors pass through untouched, so each call site keeps its own handling for those. **New client code should use `apiFetch`, not `fetch`, for `/api/*`.** The login page maps `?error=` through a fixed table (`lib/auth-messages.ts`) — only known codes resolve to text and anything else is ignored, because the query string is attacker-controllable and must never be reflected into the page (a `Map`, not an object, so `?error=constructor` can't hit a prototype key; both pinned in `__tests__/auth-messages.test.ts`). The same table carries the "link didn't work — open it on the device you requested it from" notice that `/api/auth/callback` redirects with, which used to land on a blank form.
 
 ---
 
@@ -349,4 +357,51 @@ The client doesn't yet treat a 401 specially (it shows the route's `"Unauthorize
 
 `next` and `eslint-config-next` are pinned to exact versions and must move together, so `npm update` never bumps them — it's a deliberate edit. Moved 16.2.9 → 16.4.0 on 2026-10-10 because `npm audit` flagged 16.2.9 inside several advisory ranges (the one that mattered here: a proxy-bypass advisory, since `proxy.ts` is the auth layer). Production dependencies audit clean (`npm audit --omit=dev` → 0).
 
-Remaining findings are dev-only lint tooling (`eslint-config-next`'s glob/micromatch chain). **Do not run `npm audit fix --force`:** its suggested fix is `eslint-config-next@14.2.35`, a *downgrade* two majors back that would break the Next 16 lint config. Nothing there ships to production. CI doesn't run `npm audit` or `npm run lint` today (lint currently has pre-existing errors) — see BACKLOG.
+Remaining findings are dev-only lint tooling (`eslint-config-next`'s glob/micromatch chain). **Do not run `npm audit fix --force`:** its suggested fix is `eslint-config-next@14.2.35`, a *downgrade* two majors back that would break the Next 16 lint config. Nothing there ships to production. CI now runs both (added 2026-10-10): `npm run lint` (must be clean — see "Lint is a CI gate") and `npm audit --omit=dev --audit-level=high`. The audit step can go red with **no code change** when a new advisory lands; that's its job, but it means a red audit is not a regression in the PR that happens to be open — bump the dependency (deliberately, per the pinning note above) rather than reaching for `--force`.
+
+---
+
+## Feed filtering runs in Postgres (`feed_articles()`), not as ID lists in the request URL
+
+`fetchEnrichedArticles` used to read the caller's *entire* dismissed (and, for the Saved/Read views, saved/read) article-ID lists and send them back to PostgREST inside the query URL (`.not("id","in",(…))` / `.in("id",…)`). That was recorded as "unbounded over time, fine at friend-group scale" — but the failure isn't a slowdown, it's a cliff: URLs have a hard length limit (typically 8–16 KB at ~37 bytes per UUID), so a heavy dismisser would start getting "Could not load articles" with no way to recover short of un-dismissing things. `fetchStateIds` also ignored query errors, so a failed lookup silently re-showed dismissed articles. The exact ceiling was never measured; the design was wrong regardless.
+
+`feed_articles()` (in `supabase/launch-hardening.sql`) does the same filtering as a `LEFT JOIN` to `article_state`, so nothing grows with a user's history, and the app now issues a single `rpc("feed_articles", …)` plus enrichment queries that are each bounded by the page size. Semantics are exactly the previous ones: default view hides what you dismissed; `p_dismissed` shows *only* what you dismissed (the one asymmetric case); saved/read/tag are independent toggles that AND together; keyset cursor on `(created_at, id)` so same-timestamp rows have a stable order.
+
+Things worth knowing before touching it:
+
+- **It is `SECURITY INVOKER`, and must stay that way.** It runs as the caller, so RLS on `articles` and `article_state` applies. `article_state` is per-user private; a `DEFINER` version would hand every user's saved/read/dismissed rows to anyone who called it. `auth.uid()` comes from the caller's JWT, not a parameter, so a request can't ask for someone else's state. `search_path` is pinned to `''` (everything is schema-qualified). A test asserts `prosecdef = false`.
+- **It's callable directly via `/rest/v1/rpc`,** so the page size is clamped inside it (1–51), not only in the route, and EXECUTE is revoked from `public`/`anon`.
+- **Deploy order matters — SQL first, then code.** The new app calls a function that must already exist; if it doesn't, every feed load fails with the friendly "Could not load articles" (the real "could not find the function" message is in the logs). The SQL is additive and idempotent, so running it early is harmless: the *previous* app version ignores it. README step 9 and the commit message say this.
+- **Function-in-SQL means the SQL needs its own tests.** The app's mock-based tests can only check that the right arguments are passed. Whether those arguments *select the right rows* is a property of the SQL — see "Real-Postgres tests" below.
+
+---
+
+## Real-Postgres tests for anything that lives in SQL
+
+Everything else in `__tests__/` mocks Supabase, which means RLS policies, `CHECK` constraints, triggers, and now `feed_articles()` are invisible to it — a wrong policy or a broken filter passes the whole suite. `__tests__/db-*.test.ts` run the project's **actual** `supabase/*.sql` files against an in-process Postgres ([PGlite](https://pglite.dev), a pinned devDependency, ~25 MB, dev-only) with only Supabase's own pieces stubbed in `__tests__/helpers/pg.ts`: the `auth` schema, `auth.uid()`/`auth.jwt()` driven by the same `request.jwt.claims` setting PostgREST uses, and the `anon`/`authenticated` roles. `asUser(db, claims, fn)` runs `fn` under `set role authenticated` with those claims, so RLS is exercised for real.
+
+What this is **not**: PostgREST. REST semantics, query-string parsing, and Supabase's actual role grants aren't covered — only SQL behaviour. And it doesn't replace trying the live app: this session's feed change still needs the SQL run in the real project.
+
+Conventions: new SQL ships with a `db-*.test.ts`; list the files in the order the README does, so the test and a fresh install can't diverge; and **mutation-check new tests** — temporarily break the SQL and confirm they fail (the feed tests were checked this way: dropping the dismissed filter, dropping the id tie-break, and making the function `DEFINER` are each caught). A same-timestamp pair straddling a page boundary is in the dataset on purpose: page sizes 2 and 4 pass under the "cursor on created_at only" bug, and only sizes 1 and 3 plus the explicit cursor test catch it.
+
+This does not change the "no DOM rendering" rule for component tests (see the testing entry above).
+
+---
+
+## What `launch-hardening.sql` contains, and why it's a patch file
+
+One idempotent file for an existing database, so the live DB needs a single "run this" step: (1) `revoke execute on handle_new_user()` from `public`/`anon`/`authenticated` — it's a `SECURITY DEFINER` trigger function in an exposed schema; the trigger doesn't check the *invoking* role's EXECUTE at fire time, which `db-launch-hardening.test.ts` proves by creating a user as `supabase_auth_admin` after the revoke. (2) The `feedback` insert policy now also requires `email is not distinct from auth.jwt()->>'email'`, closing the direct-insert attribution spoof (a NULL email is rejected when the JWT has one, so omitting it doesn't dodge attribution). **Re-test the feedback box after running it** — the API route already sends the session email, so it should be unaffected, but it's the one path this touches. (3) `article_state(user_id)` index — the primary key is `(article_id, user_id)` and can't serve user-first lookups. (4) `feed_articles()`.
+
+It's a patch file rather than edits to the base schema files because that's what a live database needs; the base files (`profiles-schema.sql`, `feedback-schema.sql`) are left as they were, and the patch runs last. That is exactly the "which version is live" drift the BACKLOG's migrations item is about — `content-constraints.sql` already does the same to `handle_new_user()`.
+
+---
+
+## Baseline security headers; CSP deliberately deferred
+
+`next.config.ts` sets `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and a `Permissions-Policy` denying camera/microphone/geolocation/payment/usb on every route (pages, API, manifest, static assets — verified with curl against `next start`), and `poweredByHeader: false`. HSTS is **not** set: Vercel sets it on its domains and on custom domains, and a second value from the app can only drift. `Content-Security-Policy` is **not** set either, on purpose and tracked in BACKLOG: article images are hot-linked from arbitrary hosts (`img-src` can't be a short allowlist), and `layout.tsx` has an inline theme-init script that needs a nonce or hash. A half-built CSP that breaks images or the no-flash theme is worse than none; `X-Frame-Options` covers framing in the meantime. `__tests__/next-config.test.ts` pins the header set because a dropped line in a config file fails silently.
+
+---
+
+## Lint is a CI gate
+
+`npm run lint` is now a CI step. It was left out originally and drifted to 17 errors unnoticed; several of those rules (`react-hooks/*`) catch real defects rather than style. Fixed properly rather than suppressed: `FeedClient`'s `useRef(x).current` became lazy `useState`; `ArticleCard`'s prop→state effects became render-time state adjustment (also removes a render that briefly showed the stale Nod/Saved state after a refetch); `useTheme` became `useSyncExternalStore` (the theme genuinely is external state); sign-out and session-expiry use a hard navigation through `goToLogin()` deliberately — a full reload so no signed-in client state survives — which also satisfies `@next/next/no-location-assign-relative-destination` (it flags relative literals; `goToLogin` builds an absolute URL from `location.origin`). **Don't `eslint-disable` a `react-hooks/*` rule to land a change** — each of the three above was a real design problem.

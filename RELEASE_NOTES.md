@@ -4,6 +4,22 @@ What's new in Inkwell, in plain language. A new entry is added with each release
 
 ---
 
+## October 10, 2026 *(pending — draft for review)*
+
+### 🔑 Sign-in links explain themselves
+
+Sign-in links only work in the browser you asked for them from — so if you requested one on your laptop and tapped it on your phone, you used to land on a blank sign-in form with no hint why. Now you'll see a short note saying exactly that and what to do. If your session ends while you're using Inkwell (say you signed out in another tab), you'll be taken to sign in again with a note, instead of Nods and Saves quietly not sticking.
+
+### ⚡ A feed that holds up
+
+The feed no longer slows down — or stops loading — as your list of dismissed, saved, and read articles grows. Filtering now happens in the database instead of being sent back and forth with every request.
+
+### 🛡️ Behind the scenes
+
+Tighter limits on what can be stored (link types, text lengths), updated framework security patches, and stricter browser security settings. Nothing to do on your end.
+
+---
+
 ## July 10, 2026
 
 ### 🖋️ Broadsheet: a new editorial look

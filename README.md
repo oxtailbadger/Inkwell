@@ -11,7 +11,7 @@ Live app: https://inkwell-reads.vercel.app
 - **Framework:** Next.js 16 (App Router), TypeScript, Tailwind CSS 4 — no `tailwind.config.js`, theming is CSS variables
 - **Backend:** Supabase — Postgres database, magic-link/OTP auth, row-level security
 - **Deploy:** Vercel, auto-deploys on push to `main`
-- **Tests:** Vitest, run via `npm test` — logic-level, no DOM-rendering library (see [DECISIONS.md](DECISIONS.md))
+- **Tests:** Vitest, run via `npm test` — mostly logic-level with mocked Supabase, plus tests that run the real SQL against an in-process Postgres; no DOM-rendering library (see [DECISIONS.md](DECISIONS.md))
 
 ### Request flow
 
@@ -42,11 +42,14 @@ Create a project at [supabase.com](https://supabase.com), then run the SQL files
 5. `profiles-schema.sql` — the `profiles` table (display names) + a trigger that creates a profile on signup
 6. `authors-schema.sql` — the `authors` table + seed data for the curated-authors feed
 7. `feedback-schema.sql` — the `feedback` table behind the profile page's feedback box (insert-only; you read it in the Supabase dashboard)
-8. `content-constraints.sql` — database-level `CHECK` constraints (URL scheme, length caps) on `articles`, `profiles`, and `feedback`, plus a safer signup trigger. Run it **last**; it's safe to re-run. See [DECISIONS.md](DECISIONS.md) for why validation can't live only in the API routes.
+8. `content-constraints.sql` — database-level `CHECK` constraints (URL scheme, length caps) on `articles`, `profiles`, and `feedback`, plus a safer signup trigger. Safe to re-run. See [DECISIONS.md](DECISIONS.md) for why validation can't live only in the API routes.
+9. `launch-hardening.sql` — pre-launch patch: the `feed_articles()` function the feed now calls, a tighter `feedback` insert policy, an `article_state(user_id)` index, and revoking API access to the signup trigger. Run it **last**; it's idempotent.
+
+**Order with deploys:** run step 9 *before* deploying the app version that calls `feed_articles()`. It's additive, so running it early is harmless — the previous app version just ignores it — but the new app without it fails to load the feed.
 
 Each file also contains commented-out `alter table` statements for columns added after the table was first created — check the top of each file if you're setting up a project that already has some of these tables. For an existing project you usually only need the files you haven't run yet; `content-constraints.sql` in particular can be applied on its own to a live database.
 
-**Don't skip steps 3 and 4.** `lib/articles.ts` queries `article_nod_counts` and `article_state` on every feed request, not just when their features are used — without them, the feed fails to load at all (see [DECISIONS.md](DECISIONS.md)).
+**Don't skip steps 3, 4 and 9.** `lib/articles.ts` queries `article_nod_counts` and `article_state`, and calls `feed_articles()`, on every feed request, not just when their features are used — without them, the feed fails to load at all (see [DECISIONS.md](DECISIONS.md)).
 
 ### 3. Configure environment variables
 
@@ -67,11 +70,11 @@ Open [http://localhost:3000](http://localhost:3000). You'll be redirected to `/l
 ### Running tests
 
 ```bash
-npm test          # run once
+npm test          # run once (includes the real-Postgres SQL tests; no setup needed)
 npm run test:watch  # watch mode
 ```
 
-Type check: `./node_modules/.bin/tsc --noEmit`
+Type check: `./node_modules/.bin/tsc --noEmit`  ·  Lint: `npm run lint` (CI runs both, plus `npm audit --omit=dev`)
 
 ## Deploying
 
@@ -102,11 +105,13 @@ lib/
   useTheme.ts       # shared light/dark state (ThemeToggle + Profile)
   validate.ts       # server-side input validation
   api-errors.ts     # sanitized error responses for API routes
+  api-client.ts     # apiFetch(): client calls to /api; a 401 sends you to /login
+  auth-messages.ts  # fixed ?error= codes -> login-page notices
   logger.ts         # [route-name]-prefixed server logging
   rate-limit.ts     # in-memory rate limiting (see DECISIONS.md)
   server-cache.ts   # in-memory TTL cache (see DECISIONS.md)
   paywall.ts        # RSS paywall-detection heuristics
 supabase/           # SQL schema files, run manually in the Supabase SQL editor
 instrumentation.ts  # boot-time env var validation
-__tests__/          # Vitest test suites (logic-level, see DECISIONS.md)
+__tests__/          # Vitest suites: mocked-Supabase logic tests + db-*.test.ts (real SQL, see DECISIONS.md)
 ```

@@ -11,6 +11,7 @@ import { AuthorFeed } from "@/components/AuthorFeed";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ToastStack, type ToastItem } from "@/components/Toast";
 import type { Article } from "@/lib/articles";
+import { apiFetch, goToLogin } from "@/lib/api-client";
 
 const DISMISS_TOAST_MS = 4500;
 
@@ -52,8 +53,10 @@ export default function FeedClient({
   const readOnly = searchParams.get("read") === "1";
   const dismissedOnly = searchParams.get("dismissed") === "1";
   // Set by /share (Web Share Target); captured once — SubmitArticle seeds
-  // its state from the first value, and we scrub it from the URL below
-  const sharedUrl = useRef(searchParams.get("share")).current;
+  // its state from the first value, and we scrub it from the URL below.
+  // Lazy useState (not useRef(...).current): same "read once at mount"
+  // semantics, without reading a ref during render.
+  const [sharedUrl] = useState(() => searchParams.get("share"));
 
   useEffect(() => {
     if (sharedUrl) window.history.replaceState(null, "", "/feed");
@@ -107,7 +110,7 @@ export default function FeedClient({
     setFeedError(null);
     try {
       const qs = activeFilterParams().toString();
-      const res = await fetch(qs ? `/api/articles?${qs}` : "/api/articles");
+      const res = await apiFetch(qs ? `/api/articles?${qs}` : "/api/articles");
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load articles");
       setArticles(Array.isArray(data.articles) ? data.articles : []);
@@ -127,7 +130,7 @@ export default function FeedClient({
     setFeedError(null);
     try {
       const params = activeFilterParams({ cursor: nextCursor });
-      const res = await fetch(`/api/articles?${params.toString()}`);
+      const res = await apiFetch(`/api/articles?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load more articles");
       setArticles((prev) => [...prev, ...(Array.isArray(data.articles) ? data.articles : [])]);
@@ -214,7 +217,7 @@ export default function FeedClient({
 
   async function handleDelete(id: string) {
     try {
-      const res = await fetch(`/api/articles?id=${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/articles?id=${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
       setArticles((prev) => prev.filter((a) => a.id !== id));
     } catch {
@@ -233,7 +236,7 @@ export default function FeedClient({
     // already happened. fetch only rejects on network errors, so a server
     // rejection (non-OK status) has to be thrown explicitly or the revert
     // below never runs.
-    fetch("/api/article-state", {
+    apiFetch("/api/article-state", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ article_id: id, action: "dismiss" }),
@@ -274,7 +277,7 @@ export default function FeedClient({
       next.delete(toast.articleId);
       return next;
     });
-    fetch("/api/article-state", {
+    apiFetch("/api/article-state", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ article_id: toast.articleId, action: "undismiss" }),
@@ -293,7 +296,7 @@ export default function FeedClient({
     setOpenMenuId(null);
     if (dismissedOnly) setCollapsedIds((prev) => new Set(prev).add(id));
 
-    fetch("/api/article-state", {
+    apiFetch("/api/article-state", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ article_id: id, action: "undismiss" }),
@@ -316,7 +319,7 @@ export default function FeedClient({
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    window.location.href = "/login";
+    goToLogin();
   }
 
   // Server-provided full tag list (pagination means the loaded page alone
