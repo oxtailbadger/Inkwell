@@ -1,7 +1,13 @@
 // Server-side validation for values that get stored and later rendered as
-// hrefs or image src attributes. This is the trust boundary — the client
-// form has its own guards, but a raw POST to the API must not be able to
-// store a `javascript:` URL or an unbounded string.
+// hrefs or image src attributes. The client form has its own guards, and a raw
+// POST to the API must not be able to store a `javascript:` URL or an
+// unbounded string.
+//
+// This is NOT the only wall: Supabase exposes PostgREST directly and the anon
+// key ships in the JS bundle, so a signed-in user can write to the tables
+// without going through these routes. supabase/content-constraints.sql
+// enforces the same limits as CHECK constraints — keep the two in sync
+// (__tests__/db-constraints.test.ts fails if they drift).
 
 export class ValidationError extends Error {}
 
@@ -59,9 +65,12 @@ export function validateTags(value: unknown): string[] {
 }
 
 export const LIMITS = {
+  URL: MAX_URL_LENGTH,
   TITLE: MAX_TITLE_LENGTH,
   DESCRIPTION: MAX_DESCRIPTION_LENGTH,
   SITE_NAME: MAX_SITE_NAME_LENGTH,
   DISPLAY_NAME: MAX_DISPLAY_NAME_LENGTH,
   FEEDBACK: MAX_FEEDBACK_LENGTH,
+  TAGS: MAX_TAGS,
+  TAG_LENGTH: MAX_TAG_LENGTH,
 };

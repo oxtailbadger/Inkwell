@@ -41,8 +41,10 @@ Create a project at [supabase.com](https://supabase.com), then run the SQL files
 4. `article-state-schema.sql` — the `article_state` table: private per-user saved/read/dismissed flags (references `articles`)
 5. `profiles-schema.sql` — the `profiles` table (display names) + a trigger that creates a profile on signup
 6. `authors-schema.sql` — the `authors` table + seed data for the curated-authors feed
+7. `feedback-schema.sql` — the `feedback` table behind the profile page's feedback box (insert-only; you read it in the Supabase dashboard)
+8. `content-constraints.sql` — database-level `CHECK` constraints (URL scheme, length caps) on `articles`, `profiles`, and `feedback`, plus a safer signup trigger. Run it **last**; it's safe to re-run. See [DECISIONS.md](DECISIONS.md) for why validation can't live only in the API routes.
 
-Each file also contains commented-out `alter table` statements for columns added after the table was first created — check the top of each file if you're setting up a project that already has some of these tables.
+Each file also contains commented-out `alter table` statements for columns added after the table was first created — check the top of each file if you're setting up a project that already has some of these tables. For an existing project you usually only need the files you haven't run yet; `content-constraints.sql` in particular can be applied on its own to a live database.
 
 **Don't skip steps 3 and 4.** `lib/articles.ts` queries `article_nod_counts` and `article_state` on every feed request, not just when their features are used — without them, the feed fails to load at all (see [DECISIONS.md](DECISIONS.md)).
 

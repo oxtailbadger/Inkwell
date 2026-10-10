@@ -23,6 +23,10 @@ create policy "Users can update their own profile"
 
 -- Auto-create a profile on signup, defaulting display_name to the email prefix
 -- ("paul.stanton5@gmail.com" -> "paul.stanton5"). Users can rename later.
+-- Truncated to 60 chars (the display-name limit enforced by
+-- content-constraints.sql): email local-parts can be up to 64, and an
+-- over-long default would otherwise make the *signup itself* fail. Falls back
+-- to 'user' rather than ever inserting a blank name.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -30,7 +34,14 @@ security definer set search_path = public
 as $$
 begin
   insert into public.profiles (id, display_name)
-  values (new.id, split_part(new.email, '@', 1));
+  values (
+    new.id,
+    case
+      when left(split_part(new.email, '@', 1), 60) ~ '[^[:space:]]'
+        then left(split_part(new.email, '@', 1), 60)
+      else 'user'
+    end
+  );
   return new;
 end;
 $$;

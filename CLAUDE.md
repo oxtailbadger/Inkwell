@@ -37,7 +37,7 @@ News article sharing app for a small friend group (~10 users).
 - `app/manifest.ts` — PWA manifest with Android share_target
 - `app/share/page.tsx` — share-sheet landing, redirects to /feed?share=
 - `app/error.tsx` / `app/not-found.tsx` — themed error/404 pages, Broadsheet palette
-- `proxy.ts` — session refresh + auth redirect (Next 16's middleware.ts renamed to proxy.ts)
+- `proxy.ts` — session refresh + auth gate (Next 16's middleware.ts renamed to proxy.ts); the logic is `lib/supabase/middleware.ts` `updateSession`: signed-out pages redirect to `/login`, signed-out `/api/*` gets `401` JSON (not a redirect), public paths matched as whole segments — see DECISIONS.md
 - `supabase/schema.sql` — articles table
 - `supabase/nods-schema.sql` — nods table
 - `supabase/nod-counts-view.sql` — `article_nod_counts` view (pre-aggregated counts, see DECISIONS.md)
@@ -45,6 +45,7 @@ News article sharing app for a small friend group (~10 users).
 - `supabase/authors-schema.sql` — authors table + seed data
 - `supabase/profiles-schema.sql` — profiles table (display names) + signup trigger + backfill
 - `supabase/feedback-schema.sql` — feedback table (insert-only RLS, no select policy — see DECISIONS.md)
+- `supabase/content-constraints.sql` — `CHECK` constraints mirroring `lib/validate.ts` limits (the API is not the only way into the DB — see DECISIONS.md); run last, safe to re-run
 
 See also: `DECISIONS.md` (non-obvious choices and gotchas), `BACKLOG.md` (prioritized todo), `MULTI_COMMUNITY.md` (exploratory design notes on scaling past one community).
 
@@ -57,5 +58,6 @@ See also: `DECISIONS.md` (non-obvious choices and gotchas), `BACKLOG.md` (priori
 - Colors that must stay constant regardless of theme (e.g. `components/Toast.tsx`) use hardcoded hex, not `bg-ink`/`text-paper` — those tokens flip in dark mode, a fixed-dark toast needs literal values instead. See DECISIONS.md.
 - Tests are logic-level, not DOM-render: flat files in `__tests__/` (not colocated), API routes are called directly with a constructed `NextRequest`, page.tsx server components are called directly as async functions (mocking `next/navigation`'s `redirect` to throw, matching prod control flow). No `@testing-library/react`/DOM rendering anywhere — see DECISIONS.md before introducing one.
 - Supabase is mocked per-test with hand-built chainable objects matching the exact query shape the code under test issues (`vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }))`, then `vi.mocked(createClient).mockResolvedValue(fakeSupabase)` per test) — not a generic Supabase test client. `__tests__/nods-api.test.ts` or `__tests__/article-state-api.test.ts` are the clearest examples to copy from.
+- **Input limits live in two places that must change together:** `lib/validate.ts` (friendly API errors) and `supabase/content-constraints.sql` (what a direct PostgREST write can't skip). `__tests__/db-constraints.test.ts` fails if they drift. A new writable user-text column needs both, and a re-run of the SQL against the live DB.
 - Run tests: `npm test`
 - Type check: `./node_modules/.bin/tsc --noEmit`

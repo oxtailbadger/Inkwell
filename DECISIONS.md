@@ -311,3 +311,42 @@ The light/dark choice lives only in `localStorage["inkwell-theme"]` on the devic
 The feedback box at the bottom of the profile page (`ProfileClient.tsx` → `POST /api/feedback` → `public.feedback`) is deliberately the simplest thing that works (2026-07-10): the user types free text, it's inserted, and it's read by the app owner directly in the Supabase dashboard. There is **no select policy** on the `feedback` table on purpose — the only RLS policy is insert-with-`check (auth.uid() = user_id)`. That means no user, not even the author, can read any feedback row back through the client; the owner reads it via the dashboard's service role, which bypasses RLS. This avoids building (and securing) any admin/read UI for a friend-group-scale feature.
 
 Two fields are captured **server-side from the session, never the request body**: `user_id` and `email`. The route ignores any `email`/`user_id` a caller puts in the JSON (there's an explicit test for this), so feedback can't be attributed to someone else. `email` is denormalized onto the row — same philosophy as `profiles.display_name` (the app never joins `auth.users`) — so the feedback table is readable on its own in the dashboard without a join to see who sent what. `on delete set null` on the `user_id` FK keeps the feedback if an account is later deleted. Message length is capped via `LIMITS.FEEDBACK` (4000) through the shared `validateText`, and an empty/whitespace message is a 400, not a stored blank row. If feedback volume ever justifies it, the BACKLOG note about an in-app admin view or an email/Slack notification on insert is the natural next step — but that's explicitly out of scope for "let people tell me things."
+
+---
+
+## Input limits are enforced in the database too — the API is not the trust boundary
+
+Until 2026-10-10 the only validation was in the API routes (`lib/validate.ts`), and its header comment called that "the trust boundary." It isn't one. Supabase exposes PostgREST directly, the anon key is public by design (it's in the JS bundle), and the RLS policies on `articles`, `profiles`, and `feedback` only check *ownership* (`auth.uid() = ...`), never content. So any signed-in user could `POST /rest/v1/articles` straight to the database and skip `validateHttpUrl`, every length cap, and the rate limiters — and with open signup (`/signup`) "signed-in user" no longer means "trusted friend." What that could store: a `javascript:`/`data:` URL or an unbounded string in a row rendered to every viewer (React 19 blocks `javascript:` hrefs, which softens the XSS half, but `image_url` can point anywhere and nothing bounded its size).
+
+`supabase/content-constraints.sql` adds `CHECK` constraints mirroring the API limits (http/https scheme + length on `url`/`image_url`/`site_icon_url`/`archive_url`, caps on title/description/site name, tag count and total size, display-name and feedback length). The API validation stays — it gives friendly 400s instead of an opaque constraint error — but it's now a UX layer, not the only wall.
+
+A few decisions worth knowing before touching it:
+
+- **`NOT VALID`.** Constraints are enforced for all new and updated rows immediately but don't scan existing data, so applying the script can't fail or lock on whatever's already in the table. The file ends with a commented-out check-then-`VALIDATE` block to run once you've looked at existing rows. One consequence: an `UPDATE` touching a pre-existing violating row re-checks it. The app never updates `articles`, and `profiles` only changes `display_name`, so this is theoretical.
+- **The DB is never stricter than the API.** Postgres `char_length` counts characters and JS `.length` counts UTF-16 units, so Postgres ≤ JS — a value the API accepts can't be rejected here. The URL rule is deliberately just `^https?://` (no "no whitespace" rule) because `validateHttpUrl` accepts `https://x.com/a b`; a stricter DB rule would turn a legitimate share into a 500.
+- **Per-tag length is bounded as a total.** A `CHECK` can't iterate array elements, so "12 tags of ≤40 chars" becomes "≤12 elements and ≤500 chars joined." Not exact, but it bounds what matters (row size) without a helper function.
+- **"Not blank" uses `~ '[^[:space:]]'`, not `btrim(x) <> ''`.** `btrim` strips only spaces, so a message of tabs/newlines passed. Found by running the script against a real Postgres, not by reading it.
+- **The signup trigger had to change with it.** `handle_new_user` copies the email local-part (up to 64 chars) into `display_name`; the 60-char constraint would make *signup itself* fail for such an address. The trigger now truncates to 60 and falls back to `'user'`. This is in both `profiles-schema.sql` (fresh installs) and `content-constraints.sql` (existing ones).
+- **Drift is a test failure.** `__tests__/db-constraints.test.ts` reads the SQL and asserts every limit equals `LIMITS` in `lib/validate.ts`. A new user-text column needs both sides.
+
+Verified by applying the real schema files plus the constraints to an in-process Postgres (PGlite, with `auth.users`/`auth.uid()` stubbed) and attacking it: 41 cases covering each rejection, each boundary (exactly-at-limit accepted), pre-existing violating rows surviving, idempotent re-runs, and a control proving the old trigger would have broken signup. That harness is throwaway and not in the repo; the Vitest drift test is the permanent guard. RLS itself is still not exercised by any test (see MULTI_COMMUNITY.md).
+
+Not covered here, deliberately: attribution on `feedback`. A direct insert can set `email` to any string (only `user_id` is checked by RLS). Closing it means an `auth.jwt() ->> 'email'` check in the policy; left alone to avoid risking the feedback box that was tested end to end.
+
+---
+
+## Signed-out `/api/*` returns 401 JSON from the middleware; public paths match whole segments
+
+`lib/supabase/middleware.ts` (`updateSession`, called by `proxy.ts`) used to redirect *every* signed-out request to `/login`, including `fetch()` calls to `/api/*`. `fetch` follows a 307 silently, lands on the 200 HTML login page, and `res.ok` is `true` — so Nod/Save/Read/Dismiss kept their optimistic UI and were never reverted, though nothing was saved (and reads threw a raw `Unexpected token '<'`). The 401 handlers inside each route were unreachable from a browser, because the middleware answered first. Triggers: signing out in another tab, a revoked session, cleared cookies. Verified with curl before and after (`-L`, i.e. `fetch` semantics): was `307 → 200 text/html`, now `401 application/json`, zero redirects. Pages are unchanged and still redirect.
+
+The same change fixed a latent prefix bug, found by the test written for it: the public-path check was `pathname.startsWith("/api/auth")`, and `/api/author-articles` literally starts with those characters — so that one route had been silently exempt from the middleware gate. It was never a data leak (the route does its own `getUser()` and returned 401), which is exactly why nothing noticed: per-route auth checks were hiding a broken middleware. Public paths are now matched as whole segments (`/login`, `/signup`, `/api/auth` — exact match or `<path>/…`), and `__tests__/middleware.test.ts` pins the lookalikes (`/api/author-articles`, `/api/authorize`, `/login-help`, `/signups`). **Any new public route goes in `PUBLIC_PATHS`, not in an ad-hoc `startsWith`.**
+
+The client doesn't yet treat a 401 specially (it shows the route's `"Unauthorized"` message); redirecting to `/login` on 401 would be a small follow-up.
+
+---
+
+## Dependency pins and `npm audit`
+
+`next` and `eslint-config-next` are pinned to exact versions and must move together, so `npm update` never bumps them — it's a deliberate edit. Moved 16.2.9 → 16.4.0 on 2026-10-10 because `npm audit` flagged 16.2.9 inside several advisory ranges (the one that mattered here: a proxy-bypass advisory, since `proxy.ts` is the auth layer). Production dependencies audit clean (`npm audit --omit=dev` → 0).
+
+Remaining findings are dev-only lint tooling (`eslint-config-next`'s glob/micromatch chain). **Do not run `npm audit fix --force`:** its suggested fix is `eslint-config-next@14.2.35`, a *downgrade* two majors back that would break the Next 16 lint config. Nothing there ships to production. CI doesn't run `npm audit` or `npm run lint` today (lint currently has pre-existing errors) — see BACKLOG.
