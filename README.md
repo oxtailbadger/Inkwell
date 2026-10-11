@@ -82,9 +82,14 @@ The app auto-deploys to Vercel on every push to `main`. To set up a new deployme
 
 1. Import the repo into Vercel.
 2. Add the same two environment variables from `.env.local` in the Vercel project settings.
-3. In Supabase, add your Vercel deployment URL to **Authentication → URL Configuration** (Site URL and Redirect URLs) so magic links redirect correctly.
+3. In Supabase, open **Authentication → URL Configuration** and set it for every address people will sign in from:
+   - **Site URL:** your production domain (for this deployment, `https://inkwell-reads.xyz`).
+   - **Redirect URLs:** add the production domain with a wildcard (`https://inkwell-reads.xyz/**`) *and* the Vercel address (`https://inkwell-reads.vercel.app/**`) — the app asks Supabase to redirect back to whichever origin the user signed in on, so each origin you use has to be listed.
+   - If an origin isn't in the list, Supabase doesn't error: it quietly falls back to the Site URL, so a sign-in link can land on a different domain than the one it was requested from. A custom domain and the `vercel.app` address are different origins, so after adding a domain, request a fresh sign-in link to test it — links already in an inbox keep the old address.
 
-**Before inviting anyone beyond a small trusted group**, read the "Path to public launch" section of [BACKLOG.md](BACKLOG.md) — notably, Supabase's built-in email sender is rate-limited and not intended for production traffic, and every authenticated user currently has read access to all data (fine for a closed friend group, not fine for open signup).
+**Email:** Supabase's built-in sender is rate-limited (a few emails an hour) and not meant for real traffic, so a new deployment should set up custom SMTP before sharing the sign-up link. This deployment sends through Resend from its own domain — what was configured and where the DNS records live are in [DECISIONS.md](DECISIONS.md).
+
+**Before inviting anyone beyond a small trusted group**, read the "Path to public launch" section of [BACKLOG.md](BACKLOG.md) — notably, every authenticated user currently has read access to all shared data (fine for a closed friend group, not fine for open signup), and sign-up has no bot protection yet.
 
 ## Project structure
 
