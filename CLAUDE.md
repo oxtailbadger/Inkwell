@@ -49,6 +49,7 @@ News article sharing app for a small friend group (~10 users).
 - `supabase/feedback-schema.sql` — feedback table (insert-only RLS, no select policy — see DECISIONS.md)
 - `supabase/launch-hardening.sql` — idempotent patch run last: `feed_articles()` (the feed's filtering/pagination), `feedback` insert policy bound to the JWT email, `article_state(user_id)` index, `handle_new_user()` EXECUTE revoked. **Run it before deploying code that calls `feed_articles()`**
 - `supabase/content-constraints.sql` — `CHECK` constraints mirroring `lib/validate.ts` limits (the API is not the only way into the DB — see DECISIONS.md); run last, safe to re-run
+- `supabase/email-templates/` — canonical copies of the Supabase auth emails (Confirm signup, Magic link) plus install/test notes. Supabase keeps templates only in its dashboard, so **edit here, then paste** — and `__tests__/email-templates.test.ts` guards them (no hardcoded domain, real variables only, a code in the email iff the login form accepts one)
 
 See also: `DECISIONS.md` (non-obvious choices and gotchas), `BACKLOG.md` (prioritized todo), `MULTI_COMMUNITY.md` (exploratory design notes on scaling past one community).
 
