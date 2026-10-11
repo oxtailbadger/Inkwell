@@ -4,7 +4,7 @@ A news-sharing app for a small group of friends. Paste a link, add a topic tag, 
 
 Beyond the shared feed, each person also gets their own private layer: Save articles for later, mark them read, or dismiss ones that aren't for them (with a Profile page for display name and light/dark preference).
 
-Live app: https://inkwell-reads.vercel.app
+Live app: **https://inkwell-reads.xyz** (production). The original Vercel address, https://inkwell-reads.vercel.app, still reaches the same deployment.
 
 ## How it's built
 

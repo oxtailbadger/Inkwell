@@ -134,6 +134,8 @@ The header row uses `flex-wrap` (not a plain `flex` row as in the reference) bec
 
 ## OTP code login exists for the iOS PWA
 
+> **Currently removed (2026-07-10), and queued to come back.** The login page has no code entry right now: the Supabase template only sent a link, so the box asked for something that didn't exist (see the sign-in/sign-up entry below). The reasoning here is still the reason to restore it — it's tracked in BACKLOG ("OTP code in email for PWA sign-in"), and custom SMTP, its prerequisite, shipped 2026-10-10.
+
 The login page offers "enter the code from the email" alongside the magic link (`verifyOtp` with `type: "email"`). This is not cosmetic: iOS home-screen web apps run in an isolated storage container, so a magic link tapped in email opens the default browser and the session lands there — it can never reach the PWA. Typing the code inside the PWA creates the session in the PWA's own container. **Requires the Supabase Magic Link email template to include `{{ .Token }}`** (Dashboard → Authentication → Email Templates); without it the email contains no code and the form is useless. Auth is cookie-based via @supabase/ssr with server-side refresh in middleware — don't switch to localStorage-based clients, and don't "fix" multi-tab sign-out reports by touching the client; check JWT expiry (raised in dashboard) and this PWA isolation issue first.
 
 ---
@@ -405,3 +407,17 @@ It's a patch file rather than edits to the base schema files because that's what
 ## Lint is a CI gate
 
 `npm run lint` is now a CI step. It was left out originally and drifted to 17 errors unnoticed; several of those rules (`react-hooks/*`) catch real defects rather than style. Fixed properly rather than suppressed: `FeedClient`'s `useRef(x).current` became lazy `useState`; `ArticleCard`'s prop→state effects became render-time state adjustment (also removes a render that briefly showed the stale Nod/Saved state after a refetch); `useTheme` became `useSyncExternalStore` (the theme genuinely is external state); sign-out and session-expiry use a hard navigation through `goToLogin()` deliberately — a full reload so no signed-in client state survives — which also satisfies `@next/next/no-location-assign-relative-destination` (it flags relative literals; `goToLogin` builds an absolute URL from `location.origin`). **Don't `eslint-disable` a `react-hooks/*` rule to land a change** — each of the three above was a real design problem.
+
+---
+
+## Auth email goes out via Resend SMTP from `inkwell-reads.xyz`; DNS is at Vercel, not the registrar
+
+Supabase's built-in sender (a few emails/hour, dev-only) is replaced by custom SMTP through Resend, sending as the app's own domain (2026-10-10). Supabase only holds the SMTP credentials (Authentication → Emails → SMTP Settings); the sender address must be on the verified domain, and the Resend API key lives only in the Supabase dashboard — never in this repo or `.env.local`. No application code changed: the app only ever asks Supabase to send.
+
+**Where the DNS records go is the gotcha.** The registrar is Name.com but the nameservers point at `ns1/ns2.vercel-dns.com`, so Vercel is authoritative — records added at Name.com are silently ignored. Add them in Vercel → Domains → (the domain) → DNS Records. Layout as verified with `dig` against the authoritative servers:
+
+- **SPF** is on `send.inkwell-reads.xyz` (Resend's envelope/return-path subdomain, with its bounce MX), **not** at the root. That's intentional and correct — DMARC aligns it with the From domain in relaxed mode. The root deliberately has no TXT records; adding a root SPF would only be right if something else sends as `@inkwell-reads.xyz`, and two SPF records on one name makes SPF fail.
+- **DKIM** is `resend._domainkey.inkwell-reads.xyz`.
+- **DMARC** is `_dmarc.inkwell-reads.xyz` = `v=DMARC1; p=none`. Monitor-only on purpose for a new sending domain; tightening is a BACKLOG item. No `rua=` yet because a report address on a different domain can be silently ignored.
+
+Verification, and a trap in it: `dig +short TXT <name> @8.8.8.8` (and `@ns1.vercel-dns.com`). A plain `dig` from a laptop can keep returning *empty* for a while after the record is live — the resolver cached the earlier "doesn't exist" answer — so check the authoritative servers and a public resolver before concluding a record is missing. The first test message still landed in spam with DKIM passing and no DMARC; a brand-new domain has no reputation and the default template is a near-empty one-liner linking to a different domain. Both are tracked (custom templates, DMARC). Re-test against a *different* inbox: a mailbox remembers a previous "Not spam" decision.
