@@ -91,6 +91,10 @@ describe("classifyAuthError", () => {
     const f = classifyAuthError(SUPABASE.badCode, "verify");
     expect(f.kind).toBe("bad-code");
     expect(f.message).toMatch(/new email/i);
+    // On the "I already have a code" screen a wrong ADDRESS fails exactly like a
+    // wrong code, so the message has to point at both
+    expect(f.message).toMatch(/email address/i);
+    expect(f.message).not.toMatch(/below/i); // not every screen that shows it has anything "below"
   });
 
   it("recognizes an invalid address", () => {
@@ -405,6 +409,70 @@ describe("flow state", () => {
     expect(run(withNotice, { type: "verify-started" })).toMatchObject({ busy: "verifying", notice: null });
   });
 
+  describe('"I already have a code" (a code in the inbox, but the screen waiting for it is gone)', () => {
+    const fresh = initFlowState("signin");
+
+    it("opens from the email form without sending anything", () => {
+      const s = run(fresh, { type: "have-code-opened" });
+      expect(s).toMatchObject({ step: "have-code", busy: "idle", notice: null });
+      // the reducer has no way to send; the component only dispatches this event
+      // — what matters is that it doesn't ask for an email (see the AuthForm guard)
+      expect(s.resendAvailableAt).toBeNull();
+    });
+
+    it("clears an earlier message that no longer applies (e.g. a rate limit from asking for an email)", () => {
+      const withError: FlowState = { ...fresh, notice: { tone: "error", text: "slow down" } };
+      expect(run(withError, { type: "have-code-opened" }).notice).toBeNull();
+    });
+
+    it("a wrong code or address shows a message and stays on this screen, ready to retry", () => {
+      const s = run(
+        fresh,
+        { type: "have-code-opened" },
+        { type: "verify-started" },
+        { type: "verify-failed", failure: failure({ kind: "bad-code", message: "That code didn't work." }) }
+      );
+      expect(s).toMatchObject({ step: "have-code", busy: "idle" });
+      expect(s.notice).toEqual({ tone: "error", text: "That code didn't work." });
+    });
+
+    it("verify-started clears the previous error while checking", () => {
+      const failed = run(
+        fresh,
+        { type: "have-code-opened" },
+        { type: "verify-failed", failure: failure({ kind: "bad-code", message: "nope" }) }
+      );
+      expect(run(failed, { type: "verify-started" })).toMatchObject({ step: "have-code", busy: "verifying", notice: null });
+    });
+
+    it("'Email me a new one' goes back to the email form in the page's own mode, with nothing stale", () => {
+      const signupPage = initFlowState("signup");
+      const s = run(
+        signupPage,
+        { type: "have-code-opened" },
+        { type: "verify-failed", failure: failure({ kind: "bad-code", message: "nope" }) },
+        { type: "have-code-closed" }
+      );
+      expect(s).toMatchObject({ step: "email", mode: "signup", baseMode: "signup", busy: "idle", notice: null, resendAvailableAt: null });
+    });
+
+    it("works from either page, and leaves the page's mode untouched", () => {
+      for (const page of ["signin", "signup"] as const) {
+        expect(run(initFlowState(page), { type: "have-code-opened" })).toMatchObject({ baseMode: page, mode: page });
+      }
+    });
+
+    it("verifying from here tries both OTP types, ordered by the page's mode (no email is requested)", async () => {
+      // The component passes the page's mode; verifyCode itself never calls signInWithOtp
+      for (const [page, order] of [["signin", ["email", "signup"]], ["signup", ["signup", "email"]]] as const) {
+        const { client, signInWithOtp, verifyOtp } = fakeClient({ verify: () => SUPABASE.badCode });
+        await verifyCode(client, { email: "a@b.co", token: "123456", mode: page });
+        expect(verifyOtp.mock.calls.map((c) => c[0].type)).toEqual(order);
+        expect(signInWithOtp).not.toHaveBeenCalled();
+      }
+    });
+  });
+
   it("'use a different email' from the code screen clears the cooldown and returns to the page's own mode", () => {
     const s = run(
       initFlowState("signin"),
@@ -438,6 +506,16 @@ describe("AuthForm source guard", () => {
   it("never renders error.message (use lib/auth-flow.ts so people see friendly text)", () => {
     expect(src).not.toMatch(/\berror\.message\b/);
     expect(src).not.toMatch(/\bsetError\(/);
+  });
+
+  it("offers 'Already have a code?' on the email form, and that path never requests an email", () => {
+    expect(src).toMatch(/Already have a code\?/);
+    // handleHaveCodeSubmit must verify only: asking for another email would
+    // REPLACE the very code the person is trying to use
+    const handler = src.slice(src.indexOf("function handleHaveCodeSubmit"));
+    const body = handler.slice(0, handler.indexOf("\n  }\n"));
+    expect(body).toMatch(/submitCode\(/);
+    expect(body).not.toMatch(/send\(|requestCode\(/);
   });
 
   it("goes through requestCode / verifyCode rather than calling Supabase directly", () => {

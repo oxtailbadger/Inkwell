@@ -33,6 +33,7 @@ export function AuthForm({
   const [code, setCode] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const codeRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
 
   const waitSeconds = secondsLeft(state.resendAvailableAt, now);
   const counting = state.resendAvailableAt !== null && waitSeconds > 0;
@@ -44,9 +45,12 @@ export function AuthForm({
     return () => clearInterval(id);
   }, [counting]);
 
-  // Move focus to the code field when the code screen appears
+  // Move focus to where typing starts: the code field on the code screen, and on
+  // "I already have a code" the code field if the address is already filled in
+  // (they typed it before opening it), otherwise the address.
   useEffect(() => {
     if (state.step === "code") codeRef.current?.focus();
+    if (state.step === "have-code") (emailRef.current?.value ? codeRef.current : emailRef.current)?.focus();
   }, [state.step]);
 
   async function send(email: string, sendMode: AuthMode, resent = false) {
@@ -71,10 +75,9 @@ export function AuthForm({
     void send(emailInput, state.mode);
   }
 
-  async function handleVerify(e: React.FormEvent) {
-    e.preventDefault();
+  async function submitCode(email: string, verifyMode: AuthMode) {
     dispatch({ type: "verify-started" });
-    const result = await verifyCode(createClient(), { email: state.email, token: code, mode: state.mode });
+    const result = await verifyCode(createClient(), { email, token: code, mode: verifyMode });
     if (result.ok) {
       // Hard navigation so the server sees the new session cookies. An absolute
       // URL, because a relative literal trips the no-location-assign lint rule.
@@ -83,6 +86,19 @@ export function AuthForm({
     } else {
       dispatch({ type: "verify-failed", failure: result.failure });
     }
+  }
+
+  // The code screen verifies the address we just emailed
+  function handleVerify(e: React.FormEvent) {
+    e.preventDefault();
+    void submitCode(state.email, state.mode);
+  }
+
+  // "I already have a code" verifies whatever address they typed. The page's own
+  // mode is only a hint for which OTP type to try first; verifyCode tries both.
+  function handleHaveCodeSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    void submitCode(emailInput, state.baseMode);
   }
 
   const sending = state.busy === "sending";
@@ -170,8 +186,80 @@ export function AuthForm({
                   </>
                 )}
               </p>
+              <p className="text-sm text-muted text-center">
+                Already have a code?{" "}
+                <button type="button" onClick={() => {
+                    setCode("");
+                    dispatch({ type: "have-code-opened" });
+                  }} className={linkButton}>
+                  Enter it here
+                </button>
+              </p>
             </form>
           </>
+        )}
+
+        {/* "I already have a code" — for someone who has an emailed code but lost the
+            screen that was waiting for it. No email is sent, so the code in their
+            inbox stays valid (asking again would replace it). */}
+        {state.step === "have-code" && (
+          <form onSubmit={handleHaveCodeSubmit} className="space-y-4">
+            <p className="text-sm text-muted">
+              Got a code from an Inkwell email? Enter it here &mdash; there&apos;s no need to ask for another.
+            </p>
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-ink mb-1">
+                Email address
+              </label>
+              <input
+                id="email"
+                ref={emailRef}
+                type="email"
+                required
+                autoComplete="email"
+                autoCapitalize="none"
+                spellCheck={false}
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                placeholder="you@example.com"
+                className={inputClass}
+              />
+              <p className="text-xs text-muted-2 mt-1">The address the code was sent to.</p>
+            </div>
+            <div>
+              <label htmlFor="code" className="block text-sm font-medium text-ink mb-1">
+                Code from the email
+              </label>
+              <input
+                id="code"
+                ref={codeRef}
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoCapitalize="none"
+                spellCheck={false}
+                maxLength={14}
+                required
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="123456"
+                className={`${inputClass} text-center tracking-[0.3em] font-medium`}
+              />
+            </div>
+            {noticeBox}
+            <button type="submit" disabled={verifying || !codeReady || !emailInput.trim()} className={primaryButton}>
+              {verifying ? "Signing you in…" : "Continue"}
+            </button>
+            <p className="text-sm text-muted text-center">
+              No code yet?{" "}
+              <button type="button" onClick={() => {
+                  setCode("");
+                  dispatch({ type: "have-code-closed" });
+                }} className={linkButton}>
+                Email me a new one
+              </button>
+            </p>
+          </form>
         )}
 
         {/* Sign-in with an address that has no account: offer the way forward

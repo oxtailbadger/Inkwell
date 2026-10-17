@@ -150,7 +150,7 @@ export function classifyAuthError(error: AuthLikeError, context: "send" | "verif
       return {
         kind: "bad-code",
         message:
-          "That code didn't work. Check for typos, or ask for a new email below — each new email replaces the old code.",
+          "That code didn't work. Check the email address and the code for typos, or ask for a new email — each new email replaces the old code.",
         code,
       };
     }
@@ -268,7 +268,11 @@ export async function verifyCode(
 
 // ── Screen state ────────────────────────────────────────────────────────────
 
-export type FlowStep = "email" | "no-account" | "code";
+// "have-code" is for someone who already has a valid code but lost the screen
+// that was waiting for it (a mobile in-app browser reloaded or evicted the tab
+// while they fetched it from their email app). Requesting another email would
+// REPLACE their code, so this lets them type it straight in, no email sent.
+export type FlowStep = "email" | "no-account" | "code" | "have-code";
 export type FlowNotice = { tone: "error" | "info"; text: string };
 
 export type FlowState = {
@@ -291,7 +295,9 @@ export type FlowEvent =
   | { type: "send-failed"; failure: AuthFailure; email: string; mode: AuthMode; at: number }
   | { type: "verify-started" }
   | { type: "verify-failed"; failure: AuthFailure }
-  | { type: "change-email" };
+  | { type: "change-email" }
+  | { type: "have-code-opened" }
+  | { type: "have-code-closed" };
 
 export function initFlowState(mode: AuthMode): FlowState {
   return {
@@ -350,7 +356,14 @@ export function flowReducer(state: FlowState, event: FlowEvent): FlowState {
     case "verify-failed":
       return { ...state, busy: "idle", notice: { tone: "error", text: event.failure.message } };
 
+    // Open "I already have a code": no request is made, and any earlier message
+    // (e.g. a rate limit from asking for an email) is cleared — it doesn't apply.
+    case "have-code-opened":
+      return { ...state, step: "have-code", busy: "idle", notice: null };
+
+    // Both return to the email form in the page's own mode, with nothing stale.
     case "change-email":
+    case "have-code-closed":
       return {
         ...state,
         step: "email",
