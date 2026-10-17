@@ -25,8 +25,13 @@ const KNOWN_VARIABLES = new Set([
   "Data",
 ]);
 
-const authForm = readFileSync(join(process.cwd(), "components", "AuthForm.tsx"), "utf8");
-const formAcceptsCode = /verifyOtp/.test(authForm);
+// The sign-in form accepts a code if the flow can verify one. The call lives in
+// lib/auth-flow.ts (AuthForm reaches it through verifyCode), so check both.
+const loginSources = ["components/AuthForm.tsx", "lib/auth-flow.ts"]
+  .map((f) => readFileSync(join(process.cwd(), f), "utf8"))
+  .join("\n");
+// `.auth.verifyOtp(` is the call site; a bare `verifyOtp(` would also match the type declaration
+const formAcceptsCode = /\.auth\.verifyOtp\(/.test(loginSources);
 
 describe("email templates", () => {
   it("found the templates we expect", () => {
@@ -65,10 +70,13 @@ describe("email templates", () => {
       expect(Buffer.byteLength(html)).toBeLessThan(40_000);
     });
 
-    it("tells people the link only works in the browser it was requested from", () => {
-      // This is the PKCE limitation behind the cross-device failure; if the
-      // OTP code ships and removes the limitation, delete this on purpose.
-      expect(html).toMatch(/same device and browser/i);
+    it("warns that the link only works in the browser that asked for it, and points to the code for other devices", () => {
+      // The link is PKCE-bound to the requesting browser, which is what broke
+      // sign-up for people who asked on one device and opened the email on
+      // another (or from inside Instagram's in-app browser). The code works
+      // anywhere, so the email has to say both things.
+      expect(html).toMatch(/link only works in the browser you asked for it from/i);
+      expect(html).toMatch(/enter the code/i);
     });
 
     it("shows a sign-in code if and only if the login form can accept one", () => {

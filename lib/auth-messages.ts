@@ -10,7 +10,7 @@ const NOTICES = new Map<string, string>([
     // link, so a link opened on another device/browser can't complete — e.g.
     // signing up on a laptop and tapping the email on a phone.
     "auth",
-    "That sign-in link didn't work. Links only work in the same browser you requested them from, and they expire quickly. Request a new one below and open it on this device.",
+    "That sign-in link didn't work. Links only work in the same browser you requested them from, and they expire quickly. Request a new one below and type in the code from the email instead — it works on any device.",
   ],
   [
     // Set by lib/api-client.ts when an API call comes back 401.

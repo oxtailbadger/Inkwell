@@ -112,6 +112,7 @@ lib/
   api-errors.ts     # sanitized error responses for API routes
   api-client.ts     # apiFetch(): client calls to /api; a 401 sends you to /login
   auth-messages.ts  # fixed ?error= codes -> login-page notices
+  auth-flow.ts      # sign-in/up logic: error messages, email->code flow, resend cooldown
   logger.ts         # [route-name]-prefixed server logging
   rate-limit.ts     # in-memory rate limiting (see DECISIONS.md)
   server-cache.ts   # in-memory TTL cache (see DECISIONS.md)

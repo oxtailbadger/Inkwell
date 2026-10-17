@@ -20,6 +20,7 @@ News article sharing app for a small friend group (~10 users).
 - `lib/useTheme.ts` — shared `{ theme, setTheme }` hook, used by `ThemeToggle` and the profile page's theme selector (see DECISIONS.md)
 - `lib/api-client.ts` — `apiFetch()`: use it instead of `fetch` for every client call to our own `/api/*`. A 401 (session ended) sends the user to `/login?error=expired`; other statuses/network errors pass through untouched
 - `lib/auth-messages.ts` — fixed `?error=` code → login-page notice map; unknown codes are ignored (never reflect the query string)
+- `lib/auth-flow.ts` — the sign-in/sign-up flow minus React: `classifyAuthError` (Supabase error → friendly text; **never show a raw Supabase message**), `requestCode`/`verifyCode` (email → code, tries both OTP types), and `flowReducer` (the `email` → `no-account` → `code` screens, resend cooldown). `components/AuthForm.tsx` is a thin shell over it and has no `error.message` — a test enforces that. Tested without a DOM, so keep logic here, not in the component
 - `instrumentation.ts` — validates required env vars at server boot (Next's `register()` hook), fails fast with a clear message instead of a cryptic `process.env.X!` crash
 - `.github/workflows/ci.yml` — typecheck + tests + build on push/PR
 - `app/api/articles/route.ts` — GET (paginated, `?cursor=&limit=`) /POST/DELETE articles

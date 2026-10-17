@@ -17,6 +17,7 @@
     .btn      { background-color: #7fcf9e !important; color: #15130f !important; }
     .t-link   { color: #7fcf9e !important; }
     .rule     { border-color: #3a362f !important; }
+    .bg-code  { background-color: #2a2620 !important; }
   }
 </style>
 </head>
@@ -54,8 +55,15 @@
         </tr>
         <tr>
           <td style="padding:0 36px 8px 36px;">
+            <p class="t-muted" style="margin:0 0 8px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.55;color:#6f6a62;">Or enter this code in Inkwell:</p>
+            <!-- The one-time code, for signing in from any device (the link above only works in the browser that asked for it) -->
+            <div class="bg-code t-ink" style="display:inline-block;background-color:#f3f1ec;border-radius:8px;padding:12px 18px;font-family:'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;font-size:24px;line-height:1.2;font-weight:bold;letter-spacing:0.22em;color:#17130f;">{{ .Token }}</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 36px 8px 36px;">
             <p class="t-muted" style="margin:0 0 6px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.55;color:#6f6a62;">
-              <strong>Open it on the same device and browser you asked for it from.</strong> The link is tied to that browser, so it won&rsquo;t work if you request it on a laptop and tap it on your phone. It also expires after a short while &mdash; if it&rsquo;s gone stale, just request a new one.
+              <strong>The link only works in the browser you asked for it from.</strong> On a different device, or in your phone&rsquo;s email app, enter the code instead. Both expire after a short while &mdash; if they&rsquo;ve gone stale, just request a new email.
             </p>
           </td>
         </tr>

@@ -17,6 +17,15 @@ default.
 
 ## Install
 
+> **Order matters.** The templates now show a sign-in code, and the login form
+> now accepts one. Deploy the app change first (wait for Vercel to finish), then
+> paste both templates straight away. The gap between the two is the only time
+> an email and the page disagree about whether there's a code.
+>
+> If you pasted the **earlier** versions of these templates, they have no code
+> in them — re-paste both. Until you do, the new code screen says "we sent a
+> code" and the email doesn't contain one.
+
 1. Supabase → **Authentication → Emails → Templates**.
 2. Pick the template, set the **Subject**, paste the file's HTML into **Message**, save.
 
@@ -27,6 +36,9 @@ default.
 
 Subjects are deliberate: plain, no exclamation marks, no "action required".
 
+Also check **Authentication → Providers → Email**: the OTP length (leave it at
+**6** — easy to type, and what the form's placeholder shows) and its expiry.
+
 ## Then test (the dashboard preview doesn't tell you what a mailbox does)
 
 1. Request a **fresh** sign-up and sign-in email to a **Gmail** address and to an
@@ -34,8 +46,14 @@ Subjects are deliberate: plain, no exclamation marks, no "action required".
 2. Open one → **Show original** (Gmail) and check **SPF / DKIM / DMARC = PASS**.
 3. Note whether it landed in the inbox or spam. Re-test a different mailbox a day
    later; a mailbox remembers an earlier "Not spam" decision.
-4. Open the link on the **same device and browser** you requested it from, and
-   confirm you land on `/feed`.
+4. **Test the code path from a different device than you asked on** — request on
+   a laptop, read the email on your phone, type the code into the laptop. This
+   is the case the link can't handle, and the reason the code exists.
+5. Test the link on the **same browser** you requested from, and confirm you land
+   on `/feed`.
+6. Do a real **new-account** sign-up at least once (a fresh address). A new
+   account's code may verify under a different Supabase OTP type than an existing
+   one's; the form tries both, but only a real run confirms it.
 
 ## Rules these files follow (enforced by `__tests__/email-templates.test.ts`)
 
@@ -55,26 +73,16 @@ the site. That host doesn't match the From domain, which filters notice. Only
 Supabase's paid **custom auth domain** changes it. Try the content and DMARC
 changes first.
 
-## Adding the sign-in code later
+## The sign-in code
 
-The emails deliberately contain **no code** today, because the login form has
-nowhere to type one — that mismatch is exactly why the original code box was
-removed (DECISIONS.md). When `components/AuthForm.tsx` gains a code field
-(`verifyOtp`; see the "OTP code in email" item in BACKLOG.md), add this inside
-the card of **both** templates, just below the button's row:
+Both templates show a one-time code under the button (`{{ .Token }}`), because
+the emailed link only works in the browser that requested it. That broke sign-up
+for anyone who asked on one device and opened the email on another — and for
+people arriving through Instagram's in-app browser. A code is verified on the
+server, so it works from anywhere.
 
-```html
-<tr>
-  <td style="padding:0 36px 16px 36px;">
-    <p class="t-muted" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.55;color:#6f6a62;">
-      Or enter this code in the app:
-      <strong class="t-ink" style="font-size:18px;letter-spacing:0.18em;color:#17130f;">{{ .Token }}</strong>
-    </p>
-  </td>
-</tr>
-```
-
-`__tests__/email-templates.test.ts` fails if the email shows a code while the
-form can't accept one, or the form accepts one while the email has none, so the
-two changes have to land together. The "same device and browser" paragraph can
-be softened at the same time — the code is what makes cross-device sign-in work.
+The form (`components/AuthForm.tsx`, via `lib/auth-flow.ts`) has the matching code
+field. **The two must ship together**: `__tests__/email-templates.test.ts` fails
+if an email shows a code while the form can't accept one, or the reverse. That
+mismatch — a code box with no code in the email — is why the first version of the
+code entry was removed (DECISIONS.md).
