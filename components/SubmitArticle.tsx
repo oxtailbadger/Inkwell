@@ -44,7 +44,9 @@ export function SubmitArticle({
   onSubmitted,
   initialUrl,
 }: {
-  onSubmitted: () => void;
+  // Receives the saved row, so the feed can say where it was filed
+  // (a podcast link lands in Podcasts whichever section you shared from)
+  onSubmitted: (created: { kind?: string } | null) => void;
   initialUrl?: string;
 }) {
   // initialUrl comes from the Web Share Target flow (/share -> /feed?share=);
@@ -165,8 +167,9 @@ export function SubmitArticle({
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `Save failed (${res.status})`);
       }
+      const created = await res.json().catch(() => null);
       reset();
-      onSubmitted();
+      onSubmitted(created);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -178,12 +181,12 @@ export function SubmitArticle({
     <div>
       {!open ? (
         <button onClick={() => setOpen(true)} className={`${OUTLINE_BUTTON} px-[18px] py-2.5`}>
-          + Share article
+          + Share a link
         </button>
       ) : (
         <div className="bg-card border border-card-border rounded-card p-7 space-y-[18px]">
           <p className="text-xs font-display font-semibold uppercase tracking-widest text-muted">
-            Share an article
+            Share a link
           </p>
 
           <div className="flex gap-2.5">
@@ -197,7 +200,7 @@ export function SubmitArticle({
                 // A suggested snapshot belongs to the previous URL
                 if (archiveSuggested) { setArchiveUrl(""); setArchiveSuggested(false); }
               }}
-              placeholder="Paste article URL…"
+              placeholder="Paste an article or podcast URL…"
               className="flex-1 bg-card border border-card-border rounded-control px-3.5 py-2.5 text-sm text-ink placeholder:text-muted-2 focus:outline-none focus:border-accent"
             />
             <button

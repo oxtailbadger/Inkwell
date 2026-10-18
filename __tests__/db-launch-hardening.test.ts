@@ -14,6 +14,7 @@ const ALL_SCHEMA = [
   "content-constraints.sql",
   "launch-hardening.sql",
   "duplicate-links.sql",
+  "sections.sql",
 ];
 
 let db: Db;

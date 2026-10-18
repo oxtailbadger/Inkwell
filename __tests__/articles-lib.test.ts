@@ -136,6 +136,15 @@ describe("fetchEnrichedArticles", () => {
       });
     });
 
+    it("sends p_section only for Podcasts (Articles must work before sections.sql is run)", async () => {
+      const { client, rpc } = makeFakeSupabase();
+      await fetchEnrichedArticles(client, "me", null, { limit: 24, section: "articles" });
+      const calls = rpc.mock.calls as unknown as [string, Record<string, unknown>][];
+      expect(calls[0][1]).not.toHaveProperty("p_section");
+      await fetchEnrichedArticles(client, "me", null, { limit: 24, section: "podcasts" });
+      expect(calls[1][1]).toEqual(expect.objectContaining({ p_section: "podcasts" }));
+    });
+
     it("passes the tag through", async () => {
       const { client, rpc } = makeFakeSupabase();
       await fetchEnrichedArticles(client, "me", "tech", { limit: 24 });

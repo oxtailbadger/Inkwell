@@ -1,12 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { fetchAllTags, fetchEnrichedArticles } from "@/lib/articles";
+import { parseSection } from "@/lib/sections";
 import FeedClient from "./FeedClient";
 
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tag?: string; saved?: string; read?: string; dismissed?: string }>;
+  searchParams: Promise<{ tag?: string; saved?: string; read?: string; dismissed?: string; section?: string }>;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -17,8 +18,9 @@ export default async function FeedPage({
   const savedOnly = params.saved === "1";
   const readOnly = params.read === "1";
   const dismissedOnly = params.dismissed === "1";
+  const section = parseSection(params.section);
   const [{ articles, nextCursor, error }, allTags, { data: profile }] = await Promise.all([
-    fetchEnrichedArticles(supabase, user.id, tag, { limit: 24, savedOnly, readOnly, dismissedOnly }),
+    fetchEnrichedArticles(supabase, user.id, tag, { limit: 24, savedOnly, readOnly, dismissedOnly, section }),
     fetchAllTags(supabase),
     supabase.from("profiles").select("display_name").eq("id", user.id).single(),
   ]);
@@ -30,6 +32,7 @@ export default async function FeedPage({
       displayName={profile?.display_name ?? user.email!.split("@")[0]}
       initialArticles={articles ?? []}
       initialNextCursor={nextCursor}
+      initialSection={section}
       initialTag={tag}
       initialSavedOnly={savedOnly}
       initialReadOnly={readOnly}

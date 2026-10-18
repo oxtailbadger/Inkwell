@@ -10,6 +10,10 @@ What's new in Inkwell, in plain language. A new entry is added with each release
 
 Sign-in and sign-up emails now include a short **code** as well as the link. The link only works in the browser you asked for it from — so if you asked on your laptop and opened the email on your phone, or tapped it inside Instagram or Gmail, it failed. The code works from anywhere: type it into the page you started on. Lost that page? Tap **Already have a code? Enter it here** and type your email and the code — no need to ask for a new one (which would replace it). New to Inkwell and tried to sign in? You'll now get a one-tap **Create my account** instead of an error, and clearer messages (plus a *check your spam folder* tip and a **Resend** button) if an email doesn't show up.
 
+### 🎧 A Podcasts section
+
+Inkwell now has a **Podcasts** tab beside Articles. Share a link from Apple Podcasts, Spotify (episodes and shows), Overcast, Pocket Casts and the like and it goes there automatically — nothing to pick. It works just like Articles: Nods, Save / Read / Dismiss, tags. Podcast links that were already shared have moved over. Spotify songs and playlists still count as articles. If you share a podcast while looking at Articles, you'll see "Added to Podcasts" with a link to it.
+
 ### 🔗 Shared links survive signing in
 
 If you shared an article to Inkwell from your phone while signed out, the link used to be lost once you signed in. Now you land on the Share form with it filled in.

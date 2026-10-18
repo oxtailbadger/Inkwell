@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logError } from "@/lib/logger";
 import { UUID_RE } from "@/lib/validate";
+import type { Section } from "@/lib/sections";
 
 // Single source of truth for the article shape the feed consumes:
 // the articles row plus the enrichment added by fetchEnrichedArticles.
@@ -16,6 +17,9 @@ export type Article = {
   archive_url: string | null;
   submitted_by: string;
   created_at: string;
+  // "article" | "podcast", assigned by Postgres from the URL (supabase/sections.sql).
+  // Optional because it is absent until that file has been run.
+  kind?: "article" | "podcast";
   nod_count: number;
   user_has_nodded: boolean;
   submitter_name: string | null;
@@ -70,7 +74,7 @@ export async function fetchAllTags(supabase: SupabaseClient): Promise<string[]> 
 // saved/read/dismissed flags.
 //
 // All filtering (tag, saved/read/dismissed, cursor) happens inside Postgres in
-// the feed_articles() function — see supabase/launch-hardening.sql for the
+// the feed_articles() function — see supabase/sections.sql for the
 // exact semantics. This used to pre-fetch the caller's dismissed/saved/read
 // article IDs and send them back through the request URL, which has a hard
 // length limit and so failed outright for users with a few hundred dismissed
@@ -80,11 +84,11 @@ export async function fetchEnrichedArticles(
   supabase: SupabaseClient,
   userId: string,
   tag: string | null,
-  opts: { limit: number; cursor?: string | null; savedOnly?: boolean; readOnly?: boolean; dismissedOnly?: boolean } = {
+  opts: { limit: number; cursor?: string | null; savedOnly?: boolean; readOnly?: boolean; dismissedOnly?: boolean; section?: Section } = {
     limit: 24,
   }
 ) {
-  const { limit, cursor, savedOnly, readOnly, dismissedOnly } = opts;
+  const { limit, cursor, savedOnly, readOnly, dismissedOnly, section } = opts;
 
   let decoded: { created_at: string; id: string } | null = null;
   if (cursor) {
@@ -108,6 +112,9 @@ export async function fetchEnrichedArticles(
     p_before_created_at: decoded?.created_at ?? null,
     p_before_id: decoded?.id ?? null,
     p_limit: limit + 1,
+    // Only sent for Podcasts: the function defaults to articles, so the Articles
+    // feed works before supabase/sections.sql has been run
+    ...(section === "podcasts" ? { p_section: "podcasts" } : {}),
   });
   if (error) {
     logError("fetchEnrichedArticles", error.message);

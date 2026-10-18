@@ -10,7 +10,7 @@ News article sharing app for a small friend group (~10 users).
 
 ## Key files
 - `app/feed/FeedClient.tsx` — main feed page (sidebar, articles grid, author feed); first page is server-rendered via page.tsx, tag filter lives in ?tag= URL param
-- `lib/articles.ts` — shared article fetch + enrichment (cursor pagination, nod counts, submitter names, per-user saved/read/dismissed state) plus `fetchAllTags` for the tag-filter bar; used by both the API route and the server page. **All feed filtering happens in the `feed_articles()` Postgres function** (`supabase/launch-hardening.sql`), called via `rpc` — never reintroduce ID lists in the request URL (see DECISIONS.md)
+- `lib/articles.ts` — shared article fetch + enrichment (cursor pagination, nod counts, submitter names, per-user saved/read/dismissed state) plus `fetchAllTags` for the tag-filter bar; used by both the API route and the server page. **All feed filtering happens in the `feed_articles()` Postgres function** (`supabase/sections.sql` — its only definition), called via `rpc` — never reintroduce ID lists in the request URL (see DECISIONS.md)
 - `lib/validate.ts` — server-side input validation (http/https-only URLs, length caps); wire new writable fields through this `validateUuid` for every id that arrives from a client (a malformed one used to reach Postgres and 500)
 - `lib/api-errors.ts` — `dbErrorResponse` maps DB errors to safe client messages; use for any route touching the database
 - `lib/http.ts` — `readJsonObject(request)`: **every route reads its body through this** (after the auth check). Unparseable text, an empty body, `null`, arrays and bare strings are a `400`, not the `500` a bare `request.json()` gave. `validationErrorResponse(e)` turns a `ValidationError` into a 400
@@ -51,8 +51,9 @@ News article sharing app for a small friend group (~10 users).
 - `supabase/authors-schema.sql` — authors table + seed data
 - `supabase/profiles-schema.sql` — profiles table (display names) + signup trigger + backfill
 - `supabase/feedback-schema.sql` — feedback table (insert-only RLS, no select policy — see DECISIONS.md)
-- `supabase/launch-hardening.sql` — idempotent patch run last: `feed_articles()` (the feed's filtering/pagination), `feedback` insert policy bound to the JWT email, `article_state(user_id)` index, `handle_new_user()` EXECUTE revoked. **Run it before deploying code that calls `feed_articles()`**
+- `supabase/launch-hardening.sql` — idempotent patch: `feedback` insert policy bound to the JWT email, `article_state(user_id)` index, `handle_new_user()` EXECUTE revoked. `feed_articles()` used to live here and moved to `sections.sql` (DECISIONS.md, "Podcasts section")
 - `supabase/duplicate-links.sql` — `canonicalize_url()` + a trigger filling `articles.url_canonical` + a unique index on it (built only if no duplicates exist; its last result row says whether protection is on) + `find_shared_article()`. Safe to deploy the app before running it
+- `supabase/sections.sql` — Articles/Podcasts: `classify_url()`, the trigger-filled `articles.kind`, and the **only** definition of `feed_articles()` (takes `p_section`). Run after `duplicate-links.sql`. `lib/sections.ts` is the app side (`Section`, `parseSection`, labels); the app never decides what a podcast is
 - `supabase/content-constraints.sql` — `CHECK` constraints mirroring `lib/validate.ts` limits (the API is not the only way into the DB — see DECISIONS.md); run last, safe to re-run
 - `supabase/email-templates/` — canonical copies of the Supabase auth emails (Confirm signup, Magic link) plus install/test notes. Supabase keeps templates only in its dashboard, so **edit here, then paste** — and `__tests__/email-templates.test.ts` guards them (no hardcoded domain, real variables only, a code in the email iff the login form accepts one)
 

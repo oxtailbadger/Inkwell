@@ -13,13 +13,27 @@ import { ToastStack, type ToastItem } from "@/components/Toast";
 import type { Article } from "@/lib/articles";
 import { apiFetch, goToLogin } from "@/lib/api-client";
 import { createLatestGuard } from "@/lib/latest";
+import { SECTIONS, SECTION_LABEL, parseSection, sectionOfKind, type Section } from "@/lib/sections";
 
 const DISMISS_TOAST_MS = 4500;
 
-const NAV_ITEMS = [
-  { label: "Articles", href: "#articles" },
-  { label: "Authors", href: "#authors" },
-];
+// Per-section wording for headings and empty states
+const SECTION_COPY: Record<Section, { heading: string; noun: string; nouns: string; icon: string; emptyHint: string }> = {
+  articles: {
+    heading: "Articles from your friends",
+    noun: "article",
+    nouns: "articles",
+    icon: "📰",
+    emptyHint: "Be the first to share something worth reading.",
+  },
+  podcasts: {
+    heading: "Podcasts from your friends",
+    noun: "podcast",
+    nouns: "podcasts",
+    icon: "🎧",
+    emptyHint: "Share a link from Apple Podcasts or Spotify and it lands here.",
+  },
+};
 
 export default function FeedClient({
   userEmail,
@@ -27,6 +41,7 @@ export default function FeedClient({
   displayName,
   initialArticles,
   initialNextCursor,
+  initialSection,
   initialTag,
   initialSavedOnly,
   initialReadOnly,
@@ -39,6 +54,7 @@ export default function FeedClient({
   displayName: string;
   initialArticles: Article[];
   initialNextCursor: string | null;
+  initialSection: Section;
   initialTag: string | null;
   initialSavedOnly: boolean;
   initialReadOnly: boolean;
@@ -49,6 +65,8 @@ export default function FeedClient({
   const searchParams = useSearchParams();
   // Tag + saved/read/dismissed filters all live in the URL so filtered
   // views are shareable and survive reloads
+  const section = parseSection(searchParams.get("section"));
+  const copy = SECTION_COPY[section];
   const activeTag = searchParams.get("tag");
   const savedOnly = searchParams.get("saved") === "1";
   const readOnly = searchParams.get("read") === "1";
@@ -65,7 +83,10 @@ export default function FeedClient({
   const [articles, setArticles] = useState<Article[]>(initialArticles);
   const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [activeSection, setActiveSection] = useState("articles");
+  // True once the Authors block has scrolled past the middle of the screen
+  const [atAuthors, setAtAuthors] = useState(false);
+  // "Added to Podcasts" after sharing a link that was filed in the other section
+  const [filedNotice, setFiledNotice] = useState<Section | null>(null);
   const [loading, setLoading] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(initialError);
   // The first render is already populated by the server; only refetch after
@@ -99,13 +120,14 @@ export default function FeedClient({
   const activeFilterParams = useCallback(
     (extra?: Record<string, string>) => {
       const params = new URLSearchParams(extra);
+      if (section !== "articles") params.set("section", section);
       if (activeTag) params.set("tag", activeTag);
       if (savedOnly) params.set("saved", "1");
       if (readOnly) params.set("read", "1");
       if (dismissedOnly) params.set("dismissed", "1");
       return params;
     },
-    [activeTag, savedOnly, readOnly, dismissedOnly]
+    [section, activeTag, savedOnly, readOnly, dismissedOnly]
   );
 
   // Full-list replace (initial load, tag change, post-submit refresh) — not
@@ -161,6 +183,7 @@ export default function FeedClient({
   useEffect(() => {
     if (
       hydratedFromServer.current &&
+      section === initialSection &&
       activeTag === initialTag &&
       savedOnly === initialSavedOnly &&
       readOnly === initialReadOnly &&
@@ -171,13 +194,15 @@ export default function FeedClient({
     }
     hydratedFromServer.current = false;
     loadArticles();
-  }, [loadArticles, activeTag, initialTag, savedOnly, initialSavedOnly, readOnly, initialReadOnly, dismissedOnly, initialDismissedOnly]);
+  }, [loadArticles, section, initialSection, activeTag, initialTag, savedOnly, initialSavedOnly, readOnly, initialReadOnly, dismissedOnly, initialDismissedOnly]);
 
   // Shallow history update: syncs useSearchParams without a server round-trip
   // (the tag-change effect below does the client-side fetch). Any filter not
   // named in `overrides` keeps its current value.
-  function updateFilters(overrides: { tag?: string | null; saved?: boolean; read?: boolean; dismissed?: boolean }) {
+  function updateFilters(overrides: { section?: Section; tag?: string | null; saved?: boolean; read?: boolean; dismissed?: boolean }) {
     const params = new URLSearchParams();
+    const nextSection = overrides.section !== undefined ? overrides.section : section;
+    if (nextSection !== "articles") params.set("section", nextSection);
     const nextTag = overrides.tag !== undefined ? overrides.tag : activeTag;
     const nextSaved = overrides.saved !== undefined ? overrides.saved : savedOnly;
     const nextRead = overrides.read !== undefined ? overrides.read : readOnly;
@@ -190,6 +215,20 @@ export default function FeedClient({
     window.history.replaceState(null, "", qs ? `/feed?${qs}` : "/feed");
   }
 
+  // Switching section keeps the Saved/Read/Dismissed toggles (they're per-user
+  // views you may want in both) but drops the tag, which belongs to one list
+  function switchSection(next: Section) {
+    // From the Authors block, even re-picking the current section means "take me back up"
+    if (atAuthors) document.getElementById("articles")?.scrollIntoView();
+    if (next === section) return;
+    setFiledNotice(null);
+    updateFilters({ section: next, tag: null });
+  }
+  // Articles and Podcasts switch the list; Authors scrolls to its block below it
+  const navItems: { key: string; label: string; active: boolean; section?: Section; href?: string }[] = [
+    ...SECTIONS.map((id) => ({ key: id, label: SECTION_LABEL[id], section: id, active: !atAuthors && section === id })),
+    { key: "authors", label: "Authors", href: "#authors", active: atAuthors },
+  ];
   function setActiveTag(tag: string | null) {
     updateFilters({ tag });
   }
@@ -202,7 +241,7 @@ export default function FeedClient({
   function toggleDismissedOnly() {
     updateFilters({ dismissed: !dismissedOnly });
   }
-  // Used by each empty-state's "Show all articles" link — clears every
+  // Used by each empty-state's "Show all {copy.nouns}" link — clears every
   // state-view toggle at once rather than just the one that's active,
   // since more than one can be on together
   function clearStateFilters() {
@@ -218,7 +257,7 @@ export default function FeedClient({
       const authors = document.getElementById("authors");
       if (authors) {
         const midpoint = window.innerHeight / 2;
-        setActiveSection(authors.getBoundingClientRect().top <= midpoint ? "authors" : "articles");
+        setAtAuthors(authors.getBoundingClientRect().top <= midpoint);
       }
       ticking = false;
     }
@@ -382,20 +421,16 @@ export default function FeedClient({
         {/* Sidebar */}
         <aside className="hidden lg:block w-44 shrink-0 lg:border-r lg:border-card-border">
           <nav className="sticky top-20 space-y-1">
-            {NAV_ITEMS.map(({ label, href }) => {
-              const sectionId = href.replace("#", "");
-              const isActive = activeSection === sectionId;
-              return (
-                <a
-                  key={href}
-                  href={href}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-control text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-accent-tint text-accent"
-                      : "text-muted hover:bg-tag-bg hover:text-ink"
-                  }`}
-                >
+            {navItems.map(({ key, label, active, section: target, href }) => {
+              const cls = `flex w-full items-center gap-2 px-3 py-2 rounded-control text-sm font-medium transition-colors text-left ${
+                active ? "bg-accent-tint text-accent" : "text-muted hover:bg-tag-bg hover:text-ink"
+              }`;
+              return target ? (
+                <button key={key} onClick={() => switchSection(target)} aria-current={active ? "page" : undefined} className={cls}>
+                  {label}
+                </button>
+              ) : (
+                <a key={key} href={href} aria-current={active ? "page" : undefined} className={cls}>
                   {label}
                 </a>
               );
@@ -406,7 +441,23 @@ export default function FeedClient({
         {/* Main content */}
         <main className="flex-1 min-w-0 space-y-10">
           <section id="articles" className="space-y-6 scroll-mt-20">
-            <SubmitArticle onSubmitted={loadArticles} initialUrl={sharedUrl ?? undefined} />
+            <SubmitArticle
+              onSubmitted={(created) => {
+                const filedIn = sectionOfKind(created?.kind);
+                // Only say so when it landed somewhere other than where you are
+                setFiledNotice(created?.kind && filedIn !== section ? filedIn : null);
+                loadArticles();
+              }}
+              initialUrl={sharedUrl ?? undefined}
+            />
+            {filedNotice && (
+              <p role="status" className="text-sm text-ink bg-accent-tint border border-accent rounded-control px-4 py-2.5 flex items-center justify-between gap-3">
+                <span>Added to {SECTION_LABEL[filedNotice]}.</span>
+                <button onClick={() => switchSection(filedNotice)} className="font-semibold text-accent border-b border-accent">
+                  View
+                </button>
+              </p>
+            )}
 
             {/* Independent of the tag filter below and of each other — all
                 AND'd together, not mutually exclusive, so e.g. "Saved" + a
@@ -477,7 +528,7 @@ export default function FeedClient({
               </div>
             )}
 
-            <h2 className="inline-block text-sm font-display font-semibold uppercase tracking-widest text-accent border-b-2 border-accent pb-1">Articles from your friends</h2>
+            <h2 className="inline-block text-sm font-display font-semibold uppercase tracking-widest text-accent border-b-2 border-accent pb-1">{copy.heading}</h2>
 
             {feedError && (
               <div className="rounded-control bg-danger-tint border border-danger-border px-4 py-3 text-sm text-danger">
@@ -493,54 +544,54 @@ export default function FeedClient({
               </div>
             ) : !feedError && articles.length === 0 ? (
               <div className="text-center py-20 text-muted">
-                <p className="text-4xl mb-3">📰</p>
+                <p className="text-4xl mb-3">{copy.icon}</p>
                 {savedOnly ? (
                   <>
-                    <p className="font-medium text-ink">No saved articles yet</p>
+                    <p className="font-medium text-ink">No saved {copy.nouns} yet</p>
                     <p className="text-sm mt-1">Use the ⋮ menu on a card to save it for later.</p>
                     <button
                       onClick={clearStateFilters}
                       className="text-sm mt-1 text-accent border-b border-accent"
                     >
-                      Show all articles
+                      Show all {copy.nouns}
                     </button>
                   </>
                 ) : readOnly ? (
                   <>
-                    <p className="font-medium text-ink">No read articles yet</p>
-                    <p className="text-sm mt-1">Mark an article read from its ⋮ menu.</p>
+                    <p className="font-medium text-ink">No read {copy.nouns} yet</p>
+                    <p className="text-sm mt-1">Mark {copy.noun === "article" ? "an article" : "a podcast"} read from its ⋮ menu.</p>
                     <button
                       onClick={clearStateFilters}
                       className="text-sm mt-1 text-accent border-b border-accent"
                     >
-                      Show all articles
+                      Show all {copy.nouns}
                     </button>
                   </>
                 ) : dismissedOnly ? (
                   <>
                     <p className="font-medium text-ink">Nothing dismissed</p>
-                    <p className="text-sm mt-1">Articles you dismiss show up here so you can bring them back.</p>
+                    <p className="text-sm mt-1">{copy.nouns.charAt(0).toUpperCase() + copy.nouns.slice(1)} you dismiss show up here so you can bring them back.</p>
                     <button
                       onClick={clearStateFilters}
                       className="text-sm mt-1 text-accent border-b border-accent"
                     >
-                      Show all articles
+                      Show all {copy.nouns}
                     </button>
                   </>
                 ) : activeTag ? (
                   <>
-                    <p className="font-medium text-ink">No articles tagged yet</p>
+                    <p className="font-medium text-ink">No {copy.nouns} tagged yet</p>
                     <button
                       onClick={() => setActiveTag(null)}
                       className="text-sm mt-1 text-accent border-b border-accent"
                     >
-                      Show all articles
+                      Show all {copy.nouns}
                     </button>
                   </>
                 ) : (
                   <>
-                    <p className="font-medium text-ink">No articles yet</p>
-                    <p className="text-sm mt-1">Be the first to share something worth reading.</p>
+                    <p className="font-medium text-ink">No {copy.nouns} yet</p>
+                    <p className="text-sm mt-1">{copy.emptyHint}</p>
                   </>
                 )}
               </div>
@@ -598,18 +649,16 @@ export default function FeedClient({
 
       {/* Mobile bottom nav — the sidebar is desktop-only */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-10 bg-card border-t border-card-border flex">
-        {NAV_ITEMS.map(({ label, href }) => {
-          const sectionId = href.replace("#", "");
-          const isActive = activeSection === sectionId;
-          return (
-            <a
-              key={href}
-              href={href}
-              aria-current={isActive ? "page" : undefined}
-              className={`flex-1 py-3 text-center text-sm font-medium transition-colors ${
-                isActive ? "text-accent border-t-2 border-accent -mt-px" : "text-muted"
-              }`}
-            >
+        {navItems.map(({ key, label, active, section: target, href }) => {
+          const cls = `flex-1 py-3 text-center text-sm font-medium transition-colors ${
+            active ? "text-accent border-t-2 border-accent -mt-px" : "text-muted"
+          }`;
+          return target ? (
+            <button key={key} onClick={() => switchSection(target)} aria-current={active ? "page" : undefined} className={cls}>
+              {label}
+            </button>
+          ) : (
+            <a key={key} href={href} aria-current={active ? "page" : undefined} className={cls}>
               {label}
             </a>
           );

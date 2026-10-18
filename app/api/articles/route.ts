@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { fetchEnrichedArticles } from "@/lib/articles";
+import { isSection } from "@/lib/sections";
 import { dbErrorResponse } from "@/lib/api-errors";
 import { readJsonObject, validationErrorResponse } from "@/lib/http";
 import {
@@ -30,6 +31,10 @@ export async function GET(request: NextRequest) {
   const savedOnly = request.nextUrl.searchParams.get("saved") === "1";
   const readOnly = request.nextUrl.searchParams.get("read") === "1";
   const dismissedOnly = request.nextUrl.searchParams.get("dismissed") === "1";
+  const sectionParam = request.nextUrl.searchParams.get("section");
+  if (sectionParam !== null && !isSection(sectionParam)) {
+    return NextResponse.json({ error: "Unknown section" }, { status: 400 });
+  }
   const limitParam = Number(request.nextUrl.searchParams.get("limit"));
   const limit = Number.isFinite(limitParam) && limitParam > 0
     ? Math.min(limitParam, MAX_PAGE_SIZE)
@@ -41,6 +46,7 @@ export async function GET(request: NextRequest) {
     savedOnly,
     readOnly,
     dismissedOnly,
+    section: sectionParam ?? undefined,
   });
   if (error) {
     // Bad cursor input is a client mistake (400), anything else is a

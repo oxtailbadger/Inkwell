@@ -248,6 +248,35 @@ describe("GET /api/articles", () => {
     );
   });
 
+  describe("?section=", () => {
+    const args = (supabase: ReturnType<typeof makeSupabaseMock>) =>
+      (supabase._mocks.rpc.mock.calls as unknown as [string, Record<string, unknown>][])[0][1];
+
+    it("sends no p_section for Articles, so it works before supabase/sections.sql is run", async () => {
+      for (const query of [undefined, { section: "articles" }]) {
+        const supabase = makeSupabaseMock();
+        vi.mocked(createClient).mockResolvedValue(supabase as never);
+        expect((await GET(makeRequest("GET", undefined, query))).status).toBe(200);
+        expect("p_section" in args(supabase)).toBe(false);
+      }
+    });
+
+    it("asks the database for the Podcasts section", async () => {
+      const supabase = makeSupabaseMock();
+      vi.mocked(createClient).mockResolvedValue(supabase as never);
+      expect((await GET(makeRequest("GET", undefined, { section: "podcasts", saved: "1" }))).status).toBe(200);
+      expect(args(supabase)).toEqual(expect.objectContaining({ p_section: "podcasts", p_saved: true }));
+    });
+
+    it.each(["videos", "", "PODCASTS", "podcast", "articles,podcasts"])("rejects the unknown section %j with 400", async (section) => {
+      const supabase = makeSupabaseMock();
+      vi.mocked(createClient).mockResolvedValue(supabase as never);
+      const res = await GET(makeRequest("GET", undefined, { section }));
+      expect(res.status).toBe(400);
+      expect(supabase._mocks.rpc).not.toHaveBeenCalled();
+    });
+  });
+
   it("returns 500 with a friendly message when the database function fails", async () => {
     vi.mocked(createClient).mockResolvedValue(
       makeSupabaseMock({ selectError: { message: "function public.feed_articles does not exist" } }) as never

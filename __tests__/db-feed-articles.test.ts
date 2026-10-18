@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createDb, addUser, asUser, errorOf, type Db } from "./helpers/pg";
 
-// Runs supabase/launch-hardening.sql's feed_articles() against real Postgres.
+// Runs supabase/sections.sql's feed_articles() against real Postgres (the
+// section filter itself is covered in db-sections.test.ts).
 // The app's mock-based tests can only check that fetchEnrichedArticles passes
 // the right arguments; whether those arguments *select the right rows* is a
 // property of the SQL, and only a real database can answer it.
@@ -17,6 +18,7 @@ const ALL_SCHEMA = [
   "content-constraints.sql",
   "launch-hardening.sql",
   "duplicate-links.sql",
+  "sections.sql",
 ];
 
 // Fixed UUIDs so the same-timestamp tie-break is deterministic: a5's id sorts

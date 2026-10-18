@@ -237,14 +237,6 @@ describe("the rule, on a fresh install", () => {
       expect(await errorOf(() => find(null, "https://example.com/story", "anon"))).toMatch(/permission denied/i);
     });
   });
-
-  it("doesn't disturb the feed: feed_articles() still returns whole rows with the new column present", async () => {
-    const rows = await asUser(db, { sub: alice }, async () =>
-      (await db.query(`select id, url, url_canonical from public.feed_articles(p_limit => 3)`)).rows as Record<string, unknown>[]
-    );
-    expect(rows.length).toBeGreaterThan(0);
-    expect(rows[0].url_canonical).toEqual(expect.any(String));
-  });
 });
 
 describe("running the migration on a database that already has data", () => {
