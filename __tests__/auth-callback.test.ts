@@ -65,4 +65,21 @@ describe("GET /api/auth/callback", () => {
     const res = await GET(makeRequest({}));
     expect(res.headers.get("location")).toBe("http://localhost/login?error=auth");
   });
+
+  it("sends someone on to a shared link they were headed to before signing in", async () => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
+    const next = "/feed?share=https%3A%2F%2Fexample.com%2Fa%3Fb%3D1";
+    const res = await GET(makeRequest({ code: "abc123", next }));
+    expect(res.headers.get("location")).toBe(`http://localhost${next}`);
+  });
+
+  it.each(["/login", "/signup", "/api/auth/callback", "/api/articles"])(
+    "won't bounce someone to %s straight after signing in",
+    async (next) => {
+      vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
+      const res = await GET(makeRequest({ code: "abc123", next }));
+      expect(res.headers.get("location")).toBe("http://localhost/feed");
+    }
+  );
 });
+

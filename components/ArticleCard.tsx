@@ -1,10 +1,28 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Article } from "@/lib/articles";
 import { getHostname } from "@/lib/url";
 import { apiFetch } from "@/lib/api-client";
+import { formatShareDate } from "@/lib/format-date";
+
+// The "shared on" date. The first page of articles is rendered on the server (UTC)
+// and hydrated in the browser, so a plain toLocaleDateString() produced two
+// different strings and a hydration mismatch. useSyncExternalStore is the
+// sanctioned way to say "render THIS on the server, then switch to the
+// browser's own value": hydration uses the server snapshot (so it matches the
+// HTML exactly), then React re-renders with the viewer's local day. No effect,
+// no warning, and no wrong day left on screen.
+const subscribeNever = () => () => {};
+function ShareDate({ iso }: { iso: string }) {
+  const text = useSyncExternalStore(
+    subscribeNever,
+    () => formatShareDate(iso),
+    () => formatShareDate(iso, "UTC")
+  );
+  return <>{text}</>;
+}
 
 async function patchArticleState(articleId: string, action: string) {
   const res = await apiFetch("/api/article-state", {
@@ -38,6 +56,9 @@ export function ArticleCard({
   const [hasNodded, setHasNodded] = useState(article.user_has_nodded);
   const [nodding, setNodding] = useState(false);
   const [iconFailed, setIconFailed] = useState(false);
+  // Removing deletes the article for EVERYONE (and cascades to their Nods and
+  // Saved/Read marks), so it takes a second, deliberate click
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [saved, setSaved] = useState(article.saved);
   const [read, setRead] = useState(article.read);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -282,15 +303,40 @@ export function ArticleCard({
               </span>
             )}
           </div>
-          {isOwner && (
+          {isOwner && !confirmingRemove && (
             <button
-              onClick={() => onDelete(article.id)}
+              onClick={() => setConfirmingRemove(true)}
               className="flex-none text-xs text-danger hover:opacity-75 transition-opacity"
             >
               Remove
             </button>
           )}
         </div>
+        {isOwner && confirmingRemove && (
+          <div
+            role="alert"
+            className="mb-3.5 rounded-control border border-danger-border bg-danger-tint px-3 py-2.5 text-xs text-danger"
+          >
+            <p>Remove this for everyone? Its Nods and anyone&apos;s Saved/Read marks go with it.</p>
+            <div className="mt-2 flex gap-4">
+              <button
+                onClick={() => {
+                  setConfirmingRemove(false);
+                  onDelete(article.id);
+                }}
+                className="font-semibold hover:opacity-75 transition-opacity"
+              >
+                Yes, remove
+              </button>
+              <button
+                onClick={() => setConfirmingRemove(false)}
+                className="text-muted hover:text-ink transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
         <a
           href={article.url}
           target="_blank"
@@ -349,7 +395,7 @@ export function ArticleCard({
             {read && !saved && (
               <span className="w-1.5 h-1.5 rounded-full bg-accent mr-1.5" aria-hidden="true" />
             )}
-            {isOwner ? "You" : article.submitter_name ?? "Friend"} · {new Date(article.created_at).toLocaleDateString()}
+            {isOwner ? "You" : article.submitter_name ?? "Friend"} · <ShareDate iso={article.created_at} />
           </p>
         </div>
       </div>

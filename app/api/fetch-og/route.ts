@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { fetchOgCache } from "@/lib/server-cache";
 import { logError } from "@/lib/logger";
+import { readJsonObject } from "@/lib/http";
 
 // 10 previews/minute per user: generous for a human clicking Preview,
 // tight enough that a runaway script can't burn the Microlink free-tier
@@ -15,8 +16,13 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { url } = await request.json();
-  if (!url) return NextResponse.json({ error: "URL required" }, { status: 400 });
+  const parsed = await readJsonObject(request);
+  if (!parsed.ok) return parsed.response;
+  const { url } = parsed.body;
+  // Must be a non-empty string: it becomes a cache key and a Microlink query
+  if (typeof url !== "string" || !url) {
+    return NextResponse.json({ error: "URL required" }, { status: 400 });
+  }
 
   // Cache first: serving a cached result costs nothing, so it neither hits
   // Microlink nor counts against the user's rate limit

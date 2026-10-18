@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logError } from "@/lib/logger";
+import { UUID_RE } from "@/lib/validate";
 
 // Single source of truth for the article shape the feed consumes:
 // the articles row plus the enrichment added by fetchEnrichedArticles.
@@ -30,7 +31,6 @@ export function encodeCursor(createdAt: string, id: string): string {
   return Buffer.from(JSON.stringify({ created_at: createdAt, id })).toString("base64");
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$/;
 
 export function decodeCursor(cursor: string): { created_at: string; id: string } {

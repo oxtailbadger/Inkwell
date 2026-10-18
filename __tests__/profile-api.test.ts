@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { NON_OBJECT_BODIES, rawRequest } from "./helpers/requests";
 
 const mockUser = { id: "user-123", email: "test@example.com" };
 
@@ -90,5 +91,11 @@ describe("PATCH /api/profile", () => {
     expect(res.status).toBe(500);
     expect(body.error).not.toContain("row-level security");
     expect(body.error).not.toContain("profiles");
+  });
+
+  it.each(NON_OBJECT_BODIES)("returns 400 (not 500) for %s", async (_label, raw) => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
+    const res = await PATCH(rawRequest("http://localhost/api/profile", "PATCH", raw));
+    expect(res.status).toBe(400);
   });
 });

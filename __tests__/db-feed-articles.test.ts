@@ -16,6 +16,7 @@ const ALL_SCHEMA = [
   "feedback-schema.sql",
   "content-constraints.sql",
   "launch-hardening.sql",
+  "duplicate-links.sql",
 ];
 
 // Fixed UUIDs so the same-timestamp tie-break is deterministic: a5's id sorts

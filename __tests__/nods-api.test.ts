@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { ARTICLE_ID, BAD_IDS, NON_OBJECT_BODIES, OTHER_ID, rawRequest } from "./helpers/requests";
 
 const mockUser = { id: "user-123", email: "test@example.com" };
 
@@ -54,23 +55,23 @@ describe("POST /api/nods", () => {
     const supabase = makeSupabaseMock({ existingNod: null });
     vi.mocked(createClient).mockResolvedValue(supabase as never);
 
-    const res = await POST(makeRequest({ article_id: "article-abc" }));
+    const res = await POST(makeRequest({ article_id: ARTICLE_ID }));
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body).toEqual({ nodded: true });
     expect(supabase._mocks.insert).toHaveBeenCalledWith({
-      article_id: "article-abc",
+      article_id: ARTICLE_ID,
       user_id: mockUser.id,
     });
     expect(supabase._mocks.del).not.toHaveBeenCalled();
   });
 
   it("deletes the nod when one exists and returns nodded:false", async () => {
-    const supabase = makeSupabaseMock({ existingNod: { article_id: "article-abc" } });
+    const supabase = makeSupabaseMock({ existingNod: { article_id: ARTICLE_ID } });
     vi.mocked(createClient).mockResolvedValue(supabase as never);
 
-    const res = await POST(makeRequest({ article_id: "article-abc" }));
+    const res = await POST(makeRequest({ article_id: ARTICLE_ID }));
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -83,7 +84,7 @@ describe("POST /api/nods", () => {
     vi.mocked(createClient).mockResolvedValue(
       makeSupabaseMock({ insertError: { message: 'insert or update on table "nods" violates foreign key constraint' } }) as never
     );
-    const res = await POST(makeRequest({ article_id: "no-such-article" }));
+    const res = await POST(makeRequest({ article_id: OTHER_ID }));
     const body = await res.json();
     expect(res.status).toBe(500);
     expect(body.error).not.toContain("foreign key");
@@ -98,7 +99,28 @@ describe("POST /api/nods", () => {
 
   it("returns 401 when unauthenticated", async () => {
     vi.mocked(createClient).mockResolvedValue(makeSupabaseMock({ authed: false }) as never);
-    const res = await POST(makeRequest({ article_id: "article-abc" }));
+    const res = await POST(makeRequest({ article_id: ARTICLE_ID }));
+    expect(res.status).toBe(401);
+  });
+
+  it.each(NON_OBJECT_BODIES)("returns 400 (not 500) for %s", async (_label, raw) => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
+    const res = await POST(rawRequest("http://localhost/api/nods", "POST", raw));
+    expect(res.status).toBe(400);
+  });
+
+  it.each(BAD_IDS)("returns 400 for article_id that is %s, without touching the database", async (_label, value) => {
+    const supabase = makeSupabaseMock();
+    vi.mocked(createClient).mockResolvedValue(supabase as never);
+    const res = await POST(makeRequest({ article_id: value } as never));
+    expect(res.status).toBe(400);
+    expect(supabase._mocks.insert).not.toHaveBeenCalled();
+    expect(supabase._mocks.del).not.toHaveBeenCalled();
+  });
+
+  it("checks authentication before looking at the body (401 for a signed-out caller, even with a bad body)", async () => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock({ authed: false }) as never);
+    const res = await POST(rawRequest("http://localhost/api/nods", "POST", "{not json"));
     expect(res.status).toBe(401);
   });
 });

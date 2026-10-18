@@ -13,6 +13,7 @@ const ALL_SCHEMA = [
   "feedback-schema.sql",
   "content-constraints.sql",
   "launch-hardening.sql",
+  "duplicate-links.sql",
 ];
 
 let db: Db;

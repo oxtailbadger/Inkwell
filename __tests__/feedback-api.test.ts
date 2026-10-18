@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { NON_OBJECT_BODIES, rawRequest } from "./helpers/requests";
 
 const mockUser = { id: "user-123", email: "test@example.com" };
 
@@ -105,5 +106,11 @@ describe("POST /api/feedback", () => {
     // raw Postgres detail (RLS internals, the violation phrasing).
     expect(body.error).not.toContain("row-level security");
     expect(body.error).not.toContain("violates");
+  });
+
+  it.each(NON_OBJECT_BODIES)("returns 400 (not 500) for %s", async (_label, raw) => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
+    const res = await POST(rawRequest("http://localhost/api/feedback", "POST", raw));
+    expect(res.status).toBe(400);
   });
 });

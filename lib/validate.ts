@@ -11,6 +11,22 @@
 
 export class ValidationError extends Error {}
 
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Ids arrive from the client (a JSON body or a query string) and go straight
+// into a uuid column. A malformed one makes Postgres throw an invalid-input
+// error (22P02), which used to surface as a 500 — for what is really a bad
+// request. Reject it here as a 400 instead.
+export function validateUuid(value: unknown, fieldName: string): string {
+  if (value === null || value === undefined || value === "") {
+    throw new ValidationError(`${fieldName} required`);
+  }
+  if (typeof value !== "string" || !UUID_RE.test(value)) {
+    throw new ValidationError(`${fieldName} is not valid`);
+  }
+  return value;
+}
+
 const MAX_URL_LENGTH = 2000;
 const MAX_TITLE_LENGTH = 500;
 const MAX_DESCRIPTION_LENGTH = 2000;

@@ -198,6 +198,23 @@ describe("requestCode", () => {
     );
   });
 
+  it("carries where they were headed (a shared link) through the emailed link", async () => {
+    const { client, signInWithOtp } = fakeClient();
+    const next = "/feed?share=https%3A%2F%2Fexample.com%2Fa";
+    await requestCode(client, { email: "a@b.co", mode: "signin", origin: "https://inkwell-reads.xyz", next });
+    expect(signInWithOtp.mock.calls[0][0].options.emailRedirectTo).toBe(
+      "https://inkwell-reads.xyz/api/auth/callback?next=" + encodeURIComponent(next)
+    );
+  });
+
+  it("never forwards an unsafe destination, even if one reaches it", async () => {
+    for (const next of ["//evil.com", "https://evil.com", "/login"]) {
+      const { client, signInWithOtp } = fakeClient();
+      await requestCode(client, { email: "a@b.co", mode: "signin", origin: "https://x.test", next });
+      expect(signInWithOtp.mock.calls[0][0].options.emailRedirectTo).toBe("https://x.test/api/auth/callback");
+    }
+  });
+
   it("sends the cleaned-up address and returns it", async () => {
     const { client, signInWithOtp } = fakeClient();
     const r = await requestCode(client, { email: "  Friend@Example.com ", mode: "signup", origin: "https://x.test" });

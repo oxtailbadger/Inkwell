@@ -4,6 +4,30 @@ What's new in Inkwell, in plain language. A new entry is added with each release
 
 ---
 
+## October 18, 2026 *(pending — draft for review)*
+
+### 🔢 Sign in with a code
+
+Sign-in and sign-up emails now include a short **code** as well as the link. The link only works in the browser you asked for it from — so if you asked on your laptop and opened the email on your phone, or tapped it inside Instagram or Gmail, it failed. The code works from anywhere: type it into the page you started on. Lost that page? Tap **Already have a code? Enter it here** and type your email and the code — no need to ask for a new one (which would replace it). New to Inkwell and tried to sign in? You'll now get a one-tap **Create my account** instead of an error, and clearer messages (plus a *check your spam folder* tip and a **Resend** button) if an email doesn't show up.
+
+### 🔗 Shared links survive signing in
+
+If you shared an article to Inkwell from your phone while signed out, the link used to be lost once you signed in. Now you land on the Share form with it filled in.
+
+### 🛑 No more double-shares
+
+Inkwell now notices when a link has already been shared — even if the address looks a little different (a trailing slash, `www.`, or tracking bits like `?utm_source=…`) — and tells you who shared it and suggests a Nod instead.
+
+### ✋ Remove asks first
+
+Removing an article you shared takes everyone's Nods and saved marks with it, so **Remove** now asks you to confirm.
+
+### ✨ Polish
+
+Switching topic filters quickly no longer shows the wrong list; the dates on cards show your own local day.
+
+---
+
 ## October 10, 2026 *(pending — draft for review)*
 
 ### 🔑 Sign-in links explain themselves

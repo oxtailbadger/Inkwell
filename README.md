@@ -44,8 +44,9 @@ Create a project at [supabase.com](https://supabase.com), then run the SQL files
 7. `feedback-schema.sql` — the `feedback` table behind the profile page's feedback box (insert-only; you read it in the Supabase dashboard)
 8. `content-constraints.sql` — database-level `CHECK` constraints (URL scheme, length caps) on `articles`, `profiles`, and `feedback`, plus a safer signup trigger. Safe to re-run. See [DECISIONS.md](DECISIONS.md) for why validation can't live only in the API routes.
 9. `launch-hardening.sql` — pre-launch patch: the `feed_articles()` function the feed now calls, a tighter `feedback` insert policy, an `article_state(user_id)` index, and revoking API access to the signup trigger. Run it **last**; it's idempotent.
+10. `duplicate-links.sql` — duplicate-link protection: a canonical form of each article's URL (ignores `www.`, `http` vs `https`, trailing slashes, `#fragments`, and tracking parameters like `utm_*`/`fbclid`) with a unique index on it, so the same article can't be shared twice. Run it **last**; it's idempotent. The last thing it returns is a one-line status: `OK: duplicate-link protection is ON`, or `NOT YET: N link(s)…` if some links were already shared more than once (it tells you what to do).
 
-**Order with deploys:** run step 9 *before* deploying the app version that calls `feed_articles()`. It's additive, so running it early is harmless — the previous app version just ignores it — but the new app without it fails to load the feed.
+**Order with deploys:** run step 9 *before* deploying the app version that calls `feed_articles()`. Step 10 is the opposite — it's safe to deploy the app first (until the unique index exists, nothing can raise the duplicate error, so sharing behaves as before). It's additive, so running it early is harmless — the previous app version just ignores it — but the new app without it fails to load the feed.
 
 Each file also contains commented-out `alter table` statements for columns added after the table was first created — check the top of each file if you're setting up a project that already has some of these tables. For an existing project you usually only need the files you haven't run yet; `content-constraints.sql` in particular can be applied on its own to a live database.
 
@@ -108,6 +109,11 @@ lib/
   supabase/         # Supabase client factories (browser, server, proxy)
   articles.ts       # article fetch/pagination + enrichment
   useTheme.ts       # shared light/dark state (ThemeToggle + Profile)
+  http.ts           # readJsonObject(): bad request bodies are a 400, never a 500
+  safe-redirect.ts  # the one validator for ?next= (where to go after sign-in)
+  duplicate-link.ts # turns the unique-violation on a re-shared link into a friendly 409
+  format-date.ts    # hydration-safe 'shared on' date
+  latest.ts         # "only the latest request may update the screen" guard
   validate.ts       # server-side input validation
   api-errors.ts     # sanitized error responses for API routes
   api-client.ts     # apiFetch(): client calls to /api; a 401 sends you to /login

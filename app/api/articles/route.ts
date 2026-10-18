@@ -2,7 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { fetchEnrichedArticles } from "@/lib/articles";
 import { dbErrorResponse } from "@/lib/api-errors";
-import { LIMITS, ValidationError, validateHttpUrl, validateTags, validateText } from "@/lib/validate";
+import { readJsonObject, validationErrorResponse } from "@/lib/http";
+import {
+  duplicateLinkMessage,
+  isDuplicateLinkError,
+  type ExistingShare,
+} from "@/lib/duplicate-link";
+import {
+  LIMITS,
+  ValidationError,
+  validateHttpUrl,
+  validateTags,
+  validateText,
+  validateUuid,
+} from "@/lib/validate";
 
 const DEFAULT_PAGE_SIZE = 24;
 const MAX_PAGE_SIZE = 50;
@@ -45,7 +58,9 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await request.json();
+  const parsed = await readJsonObject(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
 
   let url: string, title: string | null, description: string | null;
   let image_url: string | null, site_name: string | null, site_icon_url: string | null;
@@ -76,7 +91,13 @@ export async function POST(request: NextRequest) {
     submitted_by: user.id,
   }).select().single();
 
-  if (error) return dbErrorResponse("articles:POST", error, "Could not save the article. Please try again.");
+  if (error) {
+    // The same link was already shared (the unique index from
+    // supabase/duplicate-links.sql). A 409 with a human message, not a generic
+    // 500 — the person should be told who has it and pointed at a Nod instead.
+    if (isDuplicateLinkError(error)) return duplicateLinkResponse(supabase, url, user.id);
+    return dbErrorResponse("articles:POST", error, "Could not save the article. Please try again.");
+  }
   return NextResponse.json(data, { status: 201 });
 }
 
@@ -85,8 +106,12 @@ export async function DELETE(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const id = request.nextUrl.searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
+  let id: string;
+  try {
+    id = validateUuid(request.nextUrl.searchParams.get("id"), "id");
+  } catch (e) {
+    return validationErrorResponse(e);
+  }
 
   // A delete with a submitted_by filter that matches zero rows doesn't error
   // — it silently no-ops — so a non-owner DELETE used to return 200 with
@@ -107,4 +132,29 @@ export async function DELETE(request: NextRequest) {
   const { error } = await supabase.from("articles").delete().eq("id", id).eq("submitted_by", user.id);
   if (error) return dbErrorResponse("articles:DELETE", error, "Could not remove the article. Please try again.");
   return NextResponse.json({ success: true });
+}
+
+// Looks up who already shared this link, to say so. Best effort: if the lookup
+// fails the person still gets a correct 409, just without the name.
+async function duplicateLinkResponse(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  url: string,
+  userId: string
+) {
+  const { data } = await supabase.rpc("find_shared_article", { p_url: url });
+  const existing = (Array.isArray(data) ? data[0] : null) as ExistingShare | null;
+  return NextResponse.json(
+    {
+      error: duplicateLinkMessage(existing, userId),
+      existing: existing
+        ? {
+            id: existing.id,
+            title: existing.title,
+            shared_by: existing.shared_by,
+            is_you: existing.submitted_by === userId,
+          }
+        : null,
+    },
+    { status: 409 }
+  );
 }

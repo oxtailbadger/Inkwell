@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
+import { NON_OBJECT_BODIES, rawRequest } from "./helpers/requests";
 
 const mockUser = { id: "user-123", email: "test@example.com" };
 
@@ -169,5 +170,17 @@ describe("POST /api/fetch-og", () => {
     vi.mocked(createClient).mockResolvedValue(makeSupabaseMock(false) as never);
     const res = await POST(makeRequest("https://example.com/a"));
     expect(res.status).toBe(401);
+  });
+
+  it.each(NON_OBJECT_BODIES)("returns 400 (not 500) for %s", async (_label, raw) => {
+    const res = await POST(rawRequest("http://localhost/api/fetch-og", "POST", raw));
+    expect(res.status).toBe(400);
+  });
+
+  it.each([[42], [["https://x.com"]], [{ u: 1 }], [true]])("returns 400 when url is the non-string %j", async (url) => {
+    const res = await POST(
+      rawRequest("http://localhost/api/fetch-og", "POST", JSON.stringify({ url }))
+    );
+    expect(res.status).toBe(400);
   });
 });

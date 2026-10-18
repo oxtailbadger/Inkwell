@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { ARTICLE_ID, BAD_IDS, NON_OBJECT_BODIES, OTHER_ID, rawRequest } from "./helpers/requests";
 
 const mockUser = { id: "user-123", email: "test@example.com" };
 
 const mockArticle = {
-  id: "article-abc",
+  id: ARTICLE_ID,
   url: "https://www.theatlantic.com/some-article",
   title: "A Great Read",
   description: "Very interesting stuff.",
@@ -18,7 +19,7 @@ const mockArticle = {
 // Supabase query builder — chainable mock
 function makeSupabaseMock({
   insertData = mockArticle,
-  insertError = null,
+  insertError = null as { message: string; code?: string; details?: string } | null,
   selectData = [mockArticle],
   selectError = null,
   // Ownership lookup DELETE performs before deleting (select("submitted_by").eq("id",...).maybeSingle())
@@ -26,15 +27,18 @@ function makeSupabaseMock({
   lookupError = null,
   deleteError = null,
   authed = true,
+  // What find_shared_article() returns when a duplicate link is rejected
+  sharedLookup = { data: [] as object[] | null, error: null as { message: string } | null },
 }: {
   insertData?: typeof mockArticle | null;
-  insertError?: { message: string } | null;
+  insertError?: { message: string; code?: string; details?: string } | null;
   selectData?: typeof mockArticle[];
   selectError?: { message: string } | null;
   lookupData?: { submitted_by: string } | null;
   lookupError?: { message: string } | null;
   deleteError?: { message: string } | null;
   authed?: boolean;
+  sharedLookup?: { data: object[] | null; error: { message: string } | null };
 } = {}) {
   const single = vi.fn().mockResolvedValue({ data: insertData, error: insertError });
   const selectAfterInsert = vi.fn(() => ({ single }));
@@ -43,7 +47,13 @@ function makeSupabaseMock({
   // The feed page comes from the feed_articles() Postgres function (all
   // filtering is in SQL — see supabase/launch-hardening.sql), so the listing is
   // an rpc() call rather than a chained query on `articles`.
-  const rpc = vi.fn().mockResolvedValue({ data: selectData, error: selectError });
+  const rpc = vi.fn((name: string) =>
+    Promise.resolve(
+      name === "find_shared_article"
+        ? { data: sharedLookup.data, error: sharedLookup.error }
+        : { data: selectData, error: selectError }
+    )
+  );
 
   // .in() is used for the article_nod_counts / nods sub-queries — empty by default
   const inFn = vi.fn().mockResolvedValue({ data: [], error: null });
@@ -291,7 +301,7 @@ describe("DELETE /api/articles", () => {
 
   it("returns 404 when the article doesn't exist", async () => {
     vi.mocked(createClient).mockResolvedValue(makeSupabaseMock({ lookupData: null }) as never);
-    const res = await DELETE(makeRequest("DELETE", undefined, { id: "does-not-exist" }));
+    const res = await DELETE(makeRequest("DELETE", undefined, { id: OTHER_ID }));
     const body = await res.json();
     expect(res.status).toBe(404);
     expect(body.error).toBeTruthy();
@@ -308,3 +318,111 @@ describe("DELETE /api/articles", () => {
     expect(supabase._mocks.del).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/articles — malformed requests", () => {
+  it.each(NON_OBJECT_BODIES)("returns 400 (not 500) for %s", async (_label, raw) => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock() as never);
+    const res = await POST(rawRequest("http://localhost/api/articles", "POST", raw));
+    expect(res.status).toBe(400);
+  });
+
+  it("answers 401 before looking at the body", async () => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock({ authed: false }) as never);
+    const res = await POST(rawRequest("http://localhost/api/articles", "POST", "{not json"));
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("DELETE /api/articles — id validation", () => {
+  it.each(BAD_IDS.filter(([, v]) => typeof v === "string"))("returns 400 for an id that is %s, without a lookup", async (_label, value) => {
+    const supabase = makeSupabaseMock();
+    vi.mocked(createClient).mockResolvedValue(supabase as never);
+    const res = await DELETE(makeRequest("DELETE", undefined, { id: value as string }));
+    expect(res.status).toBe(400);
+    expect(supabase._mocks.maybeSingle).not.toHaveBeenCalled();
+    expect(supabase._mocks.del).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/articles — a link that was already shared", () => {
+  // What Postgres reports when the unique index on url_canonical rejects the insert
+  const duplicate = {
+    code: "23505",
+    message: 'duplicate key value violates unique constraint "articles_url_canonical_key"',
+    details: "Key (url_canonical)=(https://theatlantic.com/some-article) already exists.",
+  };
+  const body = { url: "https://www.theatlantic.com/some-article?utm_source=x" };
+  const shared = (over: object = {}) => ({
+    id: OTHER_ID,
+    title: "A Great Read",
+    submitted_by: "someone-else",
+    shared_by: "Priya",
+    created_at: "2026-07-01T00:00:00Z",
+    ...over,
+  });
+
+  it("returns 409 naming who already shared it, and pointing at Nod instead", async () => {
+    const supabase = makeSupabaseMock({ insertData: null, insertError: duplicate, sharedLookup: { data: [shared()], error: null } });
+    vi.mocked(createClient).mockResolvedValue(supabase as never);
+
+    const res = await POST(makeRequest("POST", body));
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json.error).toBe("Priya already shared this link — find it in the feed and give it a Nod instead.");
+    expect(json.existing).toEqual({ id: OTHER_ID, title: "A Great Read", shared_by: "Priya", is_you: false });
+    // it asks the DATABASE which article matches — the app never canonicalizes URLs itself
+    expect(supabase._mocks.rpc).toHaveBeenCalledWith("find_shared_article", { p_url: body.url });
+  });
+
+  it("says 'You already shared this link' when it was the same person", async () => {
+    const supabase = makeSupabaseMock({
+      insertData: null,
+      insertError: duplicate,
+      sharedLookup: { data: [shared({ submitted_by: mockUser.id, shared_by: "me" })], error: null },
+    });
+    vi.mocked(createClient).mockResolvedValue(supabase as never);
+    const json = await (await POST(makeRequest("POST", body))).json();
+    expect(json.error).toBe("You already shared this link.");
+    expect(json.existing.is_you).toBe(true);
+  });
+
+  it("falls back to a generic-but-helpful 409 if the lookup fails or finds nothing", async () => {
+    for (const sharedLookup of [
+      { data: null, error: { message: "function find_shared_article does not exist" } },
+      { data: [], error: null },
+    ]) {
+      vi.mocked(createClient).mockResolvedValue(
+        makeSupabaseMock({ insertData: null, insertError: duplicate, sharedLookup }) as never
+      );
+      const res = await POST(makeRequest("POST", body));
+      const json = await res.json();
+      expect(res.status).toBe(409);
+      expect(json.error).toMatch(/already been shared/i);
+      expect(json.error).not.toMatch(/function|does not exist/i);
+      expect(json.existing).toBeNull();
+    }
+  });
+
+  it("does not treat an unrelated unique violation as a duplicate link", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeSupabaseMock({
+        insertData: null,
+        insertError: { code: "23505", message: 'duplicate key value violates unique constraint "articles_pkey"' },
+      }) as never
+    );
+    const res = await POST(makeRequest("POST", body));
+    expect(res.status).toBe(500);
+  });
+
+  it("does not treat a non-unique-violation that merely mentions the index as a duplicate", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeSupabaseMock({
+        insertData: null,
+        insertError: { code: "42501", message: 'permission denied for index "articles_url_canonical_key"' },
+      }) as never
+    );
+    expect((await POST(makeRequest("POST", body))).status).toBe(500);
+  });
+});
+

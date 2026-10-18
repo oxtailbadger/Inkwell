@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ToastStack, type ToastItem } from "@/components/Toast";
 import type { Article } from "@/lib/articles";
 import { apiFetch, goToLogin } from "@/lib/api-client";
+import { createLatestGuard } from "@/lib/latest";
 
 const DISMISS_TOAST_MS = 4500;
 
@@ -70,6 +71,10 @@ export default function FeedClient({
   // The first render is already populated by the server; only refetch after
   // that when the tag changes or a submission triggers a reload
   const hydratedFromServer = useRef(true);
+  // Responses can arrive out of order: click tag A (slow) then tag B (fast) and
+  // A's answer used to land last and overwrite B's. Only the latest full load —
+  // and any "load more" that belongs to it — may update the screen.
+  const [latest] = useState(() => createLatestGuard());
 
   // Save/Read/Dismiss: only one card's kebab menu open at a time, app-wide
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -106,26 +111,35 @@ export default function FeedClient({
   // Full-list replace (initial load, tag change, post-submit refresh) — not
   // to be confused with loadMore() below, which appends instead of replacing
   const loadArticles = useCallback(async () => {
+    const token = latest.next(); // also invalidates any older load or "load more"
     setLoading(true);
+    setLoadingMore(false);
     setFeedError(null);
     try {
       const qs = activeFilterParams().toString();
       const res = await apiFetch(qs ? `/api/articles?${qs}` : "/api/articles");
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load articles");
+      if (!latest.isCurrent(token)) return; // a newer filter was chosen meanwhile
       setArticles(Array.isArray(data.articles) ? data.articles : []);
       setNextCursor(data.nextCursor ?? null);
     } catch (e) {
+      if (!latest.isCurrent(token)) return;
       setFeedError(`Could not load articles: ${e instanceof Error ? e.message : "network error"}`);
       setArticles([]);
       setNextCursor(null);
     } finally {
-      setLoading(false);
+      // Only the latest request owns the spinner; a stale one finishing must not
+      // switch it off while the newer one is still loading
+      if (latest.isCurrent(token)) setLoading(false);
     }
-  }, [activeFilterParams]);
+  }, [activeFilterParams, latest]);
 
   async function loadMore() {
     if (!nextCursor || loadingMore) return;
+    // The cursor belongs to the filters that produced it. If the filters change
+    // while this is in flight, its page of results is for the wrong list.
+    const token = latest.current();
     setLoadingMore(true);
     setFeedError(null);
     try {
@@ -133,12 +147,14 @@ export default function FeedClient({
       const res = await apiFetch(`/api/articles?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load more articles");
+      if (!latest.isCurrent(token)) return;
       setArticles((prev) => [...prev, ...(Array.isArray(data.articles) ? data.articles : [])]);
       setNextCursor(data.nextCursor ?? null);
     } catch (e) {
+      if (!latest.isCurrent(token)) return;
       setFeedError(`Could not load more articles: ${e instanceof Error ? e.message : "network error"}`);
     } finally {
-      setLoadingMore(false);
+      if (latest.isCurrent(token)) setLoadingMore(false);
     }
   }
 

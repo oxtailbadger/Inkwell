@@ -11,8 +11,11 @@ News article sharing app for a small friend group (~10 users).
 ## Key files
 - `app/feed/FeedClient.tsx` — main feed page (sidebar, articles grid, author feed); first page is server-rendered via page.tsx, tag filter lives in ?tag= URL param
 - `lib/articles.ts` — shared article fetch + enrichment (cursor pagination, nod counts, submitter names, per-user saved/read/dismissed state) plus `fetchAllTags` for the tag-filter bar; used by both the API route and the server page. **All feed filtering happens in the `feed_articles()` Postgres function** (`supabase/launch-hardening.sql`), called via `rpc` — never reintroduce ID lists in the request URL (see DECISIONS.md)
-- `lib/validate.ts` — server-side input validation (http/https-only URLs, length caps); wire new writable fields through this
+- `lib/validate.ts` — server-side input validation (http/https-only URLs, length caps); wire new writable fields through this `validateUuid` for every id that arrives from a client (a malformed one used to reach Postgres and 500)
 - `lib/api-errors.ts` — `dbErrorResponse` maps DB errors to safe client messages; use for any route touching the database
+- `lib/http.ts` — `readJsonObject(request)`: **every route reads its body through this** (after the auth check). Unparseable text, an empty body, `null`, arrays and bare strings are a `400`, not the `500` a bare `request.json()` gave. `validationErrorResponse(e)` turns a `ValidationError` into a 400
+- `lib/safe-redirect.ts` — the single validator for `?next=` (where to land after sign-in). It's attacker-writable, so it's checked at every hop (gate → login page → emailed link → callback → navigation); never read `next` without it
+- `lib/duplicate-link.ts` — recognizes the unique-violation on a re-shared link and writes the 409 message. **Canonicalizing URLs lives only in SQL** (`supabase/duplicate-links.sql`); the app never computes the canonical form
 - `lib/url.ts` — `getHostname()`, the single shared URL-hostname parser (ArticleCard, AuthorFeed)
 - `lib/rate-limit.ts` / `lib/server-cache.ts` — in-memory per-user rate limiting + TTL caches for fetch-og/archive-check (per-instance by design, see DECISIONS.md)
 - `lib/paywall.ts` — RSS paywall heuristics (extracted from author-articles route for testability)
@@ -49,6 +52,7 @@ News article sharing app for a small friend group (~10 users).
 - `supabase/profiles-schema.sql` — profiles table (display names) + signup trigger + backfill
 - `supabase/feedback-schema.sql` — feedback table (insert-only RLS, no select policy — see DECISIONS.md)
 - `supabase/launch-hardening.sql` — idempotent patch run last: `feed_articles()` (the feed's filtering/pagination), `feedback` insert policy bound to the JWT email, `article_state(user_id)` index, `handle_new_user()` EXECUTE revoked. **Run it before deploying code that calls `feed_articles()`**
+- `supabase/duplicate-links.sql` — `canonicalize_url()` + a trigger filling `articles.url_canonical` + a unique index on it (built only if no duplicates exist; its last result row says whether protection is on) + `find_shared_article()`. Safe to deploy the app before running it
 - `supabase/content-constraints.sql` — `CHECK` constraints mirroring `lib/validate.ts` limits (the API is not the only way into the DB — see DECISIONS.md); run last, safe to re-run
 - `supabase/email-templates/` — canonical copies of the Supabase auth emails (Confirm signup, Magic link) plus install/test notes. Supabase keeps templates only in its dashboard, so **edit here, then paste** — and `__tests__/email-templates.test.ts` guards them (no hardcoded domain, real variables only, a code in the email iff the login form accepts one)
 
@@ -66,6 +70,8 @@ See also: `DECISIONS.md` (non-obvious choices and gotchas), `BACKLOG.md` (priori
 - **Input limits live in two places that must change together:** `lib/validate.ts` (friendly API errors) and `supabase/content-constraints.sql` (what a direct PostgREST write can't skip). `__tests__/db-constraints.test.ts` fails if they drift. A new writable user-text column needs both, and a re-run of the SQL against the live DB.
 - **SQL needs real-database tests.** Mocked-Supabase tests can't see RLS, constraints, triggers, or `feed_articles()`. `__tests__/db-*.test.ts` run the actual `supabase/*.sql` files in-process (PGlite) via `__tests__/helpers/pg.ts` — `asUser()` runs a block under `set role authenticated` with chosen JWT claims, so RLS is exercised for real. New SQL ships with a `db-*.test.ts`; temporarily break the SQL to prove the tests fail. This is SQL-only: it is not PostgREST. See DECISIONS.md.
 - Client code calls our API through `apiFetch` (above), and never `eslint-disable`s a `react-hooks/*` rule — lint is a CI gate and those rules flagged real design problems (DECISIONS.md, "Lint is a CI gate").
+- **RLS is tested for every table** (`__tests__/db-rls.test.ts`): positive AND negative cases as `authenticated` and `anon`. A new table or policy ships with cases there. Note Postgres lets an UPDATE policy omit `WITH CHECK` (it then defaults to `USING`) and also requires the new row to pass the table's `SELECT` policy, so some "loosened" policies aren't actually weaker — mutate with an explicit `with check (true)` and expect a second policy to sometimes still block it.
+- Route handlers: read the body with `readJsonObject`, validate ids with `validateUuid`, and use `Object.hasOwn` (never `TABLE[userInput]`) when looking up a user-supplied key in a plain object — `ACTIONS["constructor"]` is truthy.
 - Run tests: `npm test`
 - Type check: `./node_modules/.bin/tsc --noEmit`
 - Lint: `npm run lint` (CI fails on any error). CI also runs `npm audit --omit=dev --audit-level=high`; don't `npm audit fix --force` (DECISIONS.md).

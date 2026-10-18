@@ -1,3 +1,5 @@
+import { authCallbackUrl } from "@/lib/safe-redirect";
+
 // The sign-in / sign-up flow, minus React. components/AuthForm.tsx is a thin
 // shell over this file, because the repo has no DOM-testing library and the
 // parts that went wrong for real users — which error means what, what to say,
@@ -214,7 +216,7 @@ export type VerifyResult = { ok: true } | { ok: false; failure: AuthFailure };
 // does, so an unknown address errors with "no-account" instead.
 export async function requestCode(
   client: AuthClient,
-  { email, mode, origin }: { email: string; mode: AuthMode; origin: string }
+  { email, mode, origin, next }: { email: string; mode: AuthMode; origin: string; next?: string }
 ): Promise<SendResult> {
   const clean = normalizeEmail(email);
   if (!isPlausibleEmail(clean)) {
@@ -224,7 +226,9 @@ export async function requestCode(
     const { error } = await client.auth.signInWithOtp({
       email: clean,
       options: {
-        emailRedirectTo: `${origin}/api/auth/callback`,
+        // Carries `next` (where they were headed, e.g. a shared link) through
+        // the emailed link; only when it's safe and not just the default
+        emailRedirectTo: authCallbackUrl(origin, next),
         shouldCreateUser: mode === "signup",
       },
     });

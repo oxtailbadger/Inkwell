@@ -14,6 +14,7 @@ import {
   verifyCode,
   type AuthMode,
 } from "@/lib/auth-flow";
+import { afterLoginUrl, authPageHref } from "@/lib/safe-redirect";
 
 // Shared by the /login (signin) and /signup routes. The only differences are
 // copy and whether an unknown address is allowed to create an account; all the
@@ -22,8 +23,12 @@ import {
 export function AuthForm({
   mode,
   notice,
+  next,
 }: {
   mode: AuthMode;
+  // Where they were headed before being sent to sign in (already validated as a
+  // same-site path by the page): a shared link, say. They land there afterwards.
+  next?: string;
   // Why the user is seeing this page again (e.g. their link failed or their
   // session ended). Already mapped to safe text by lib/auth-messages.ts.
   notice?: string | null;
@@ -59,6 +64,7 @@ export function AuthForm({
       email,
       mode: sendMode,
       origin: window.location.origin,
+      next,
     });
     const at = Date.now();
     setNow(at);
@@ -79,10 +85,11 @@ export function AuthForm({
     dispatch({ type: "verify-started" });
     const result = await verifyCode(createClient(), { email, token: code, mode: verifyMode });
     if (result.ok) {
-      // Hard navigation so the server sees the new session cookies. An absolute
-      // URL, because a relative literal trips the no-location-assign lint rule.
-      // Stay in the "verifying" state — the page is about to be replaced.
-      window.location.assign(new URL("/feed", window.location.origin).toString());
+      // Hard navigation so the server sees the new session cookies, to where they
+      // were headed (or /feed). An absolute URL, because a relative literal trips
+      // the no-location-assign lint rule. Stay in the "verifying" state — the
+      // page is about to be replaced.
+      window.location.assign(afterLoginUrl(window.location.origin, next));
     } else {
       dispatch({ type: "verify-failed", failure: result.failure });
     }
@@ -173,14 +180,14 @@ export function AuthForm({
                 {state.baseMode === "signup" ? (
                   <>
                     Already have an account?{" "}
-                    <Link href="/login" className="text-accent font-medium hover:underline">
+                    <Link href={authPageHref("/login", next)} className="text-accent font-medium hover:underline">
                       Sign in
                     </Link>
                   </>
                 ) : (
                   <>
                     New to Inkwell?{" "}
-                    <Link href="/signup" className="text-accent font-medium hover:underline">
+                    <Link href={authPageHref("/signup", next)} className="text-accent font-medium hover:underline">
                       Create an account
                     </Link>
                   </>

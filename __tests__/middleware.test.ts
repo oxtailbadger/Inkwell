@@ -37,6 +37,41 @@ describe("updateSession — signed out", () => {
     expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
   });
 
+  describe("remembers where a signed-out visitor was headed, so signing in lands them there", () => {
+    const loc = async (path: string) => {
+      signedOut();
+      const res = await updateSession(req(path));
+      expect(res.status).toBe(307);
+      const u = new URL(res.headers.get("location")!);
+      return { path: u.pathname, next: u.searchParams.get("next"), search: u.search };
+    };
+
+    it("a link shared from the phone's share sheet survives the trip through /login", async () => {
+      const shared = "/share?url=https%3A%2F%2Fexample.com%2Fa%3Fb%3D1&text=hi";
+      expect(await loc(shared)).toMatchObject({ path: "/login", next: shared });
+    });
+
+    it("/feed?share=… is remembered too (what /share itself redirects to)", async () => {
+      const dest = "/feed?share=https%3A%2F%2Fexample.com%2Fa";
+      expect(await loc(dest)).toMatchObject({ path: "/login", next: dest });
+    });
+
+    it("other pages are remembered", async () => {
+      expect(await loc("/profile")).toMatchObject({ path: "/login", next: "/profile" });
+    });
+
+    it("plain /feed and the root add nothing — they're the default anyway", async () => {
+      expect(await loc("/feed")).toMatchObject({ path: "/login", search: "" });
+      expect(await loc("/")).toMatchObject({ path: "/login", search: "" });
+    });
+
+    it("does not carry the original query string onto /login (only the encoded next)", async () => {
+      const r = await loc("/feed?tag=tech&saved=1");
+      expect(r.next).toBe("/feed?tag=tech&saved=1");
+      expect(new URL("https://x.test/login" + r.search).searchParams.has("tag")).toBe(false);
+    });
+  });
+
   it("returns 401 JSON (not a redirect) for API routes, so fetch() callers can act on it", async () => {
     signedOut();
     const res = await updateSession(req("/api/nods", "POST"));

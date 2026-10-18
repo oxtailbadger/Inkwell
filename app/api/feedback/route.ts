@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { dbErrorResponse } from "@/lib/api-errors";
+import { readJsonObject } from "@/lib/http";
 import { LIMITS, ValidationError, validateText } from "@/lib/validate";
 
 export async function POST(request: NextRequest) {
@@ -8,7 +9,9 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await request.json();
+  const parsed = await readJsonObject(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
 
   let message: string | null;
   try {

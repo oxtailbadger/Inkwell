@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { loginRedirectPath } from "@/lib/safe-redirect";
 
 // Reachable without a session. Matched as whole path segments, not string
 // prefixes: a bare startsWith("/api/auth") also matches "/api/author-articles"
@@ -50,9 +51,11 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    // Remember where they were headed (query string included) so signing in
+    // lands them there — that's how a link shared from the Android share sheet
+    // survives the trip through /login instead of being dropped.
+    const { pathname, search } = request.nextUrl;
+    return NextResponse.redirect(new URL(loginRedirectPath(pathname, search), request.url));
   }
 
   return supabaseResponse;
