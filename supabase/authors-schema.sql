@@ -30,3 +30,13 @@ insert into public.authors (name, rss_url, website_url) values
 -- when this is null, so it's not required for logos to appear.
 -- Run separately if the table already exists:
 -- alter table public.authors add column if not exists site_icon_url text;
+
+-- Added 2026-10-18: more tech / politics / culture writers. Run separately if the
+-- table already exists. There is no unique constraint on authors, so running this
+-- twice adds everyone twice.
+insert into public.authors (name, rss_url, website_url) values
+  ('Casey Newton', 'https://www.platformer.news/feed', 'https://www.platformer.news'),
+  ('Matthew Yglesias', 'https://www.slowboring.com/feed', 'https://www.slowboring.com'),
+  ('Heather Cox Richardson', 'https://heathercoxrichardson.substack.com/feed', 'https://heathercoxrichardson.substack.com'),
+  ('Anne Helen Petersen', 'https://annehelen.substack.com/feed', 'https://annehelen.substack.com'),
+  ('Jonathan Haidt', 'https://www.afterbabel.com/feed', 'https://www.afterbabel.com');
