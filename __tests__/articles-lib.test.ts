@@ -143,6 +143,8 @@ describe("fetchEnrichedArticles", () => {
       expect(calls[0][1]).not.toHaveProperty("p_section");
       await fetchEnrichedArticles(client, "me", null, { limit: 24, section: "podcasts" });
       expect(calls[1][1]).toEqual(expect.objectContaining({ p_section: "podcasts" }));
+      await fetchEnrichedArticles(client, "me", null, { limit: 24, section: "all" });
+      expect(calls[2][1]).toEqual(expect.objectContaining({ p_section: "all" }));
     });
 
     it("passes the tag through", async () => {

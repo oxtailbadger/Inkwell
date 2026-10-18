@@ -1,31 +1,27 @@
-// The feed's sections. Which section a link belongs to is decided by Postgres
-// (articles.kind, filled by a trigger from the URL — supabase/sections.sql); the
-// app only chooses which section to LOOK at.
-export type Section = "articles" | "podcasts";
+// The feed's sections. Which kind a link is (article or podcast) is decided by
+// Postgres (articles.kind, filled by a trigger from the URL —
+// supabase/sections.sql); the app only chooses which list to LOOK at. "all" is
+// both kinds mixed, newest first, and is the default view.
+export type Section = "all" | "articles" | "podcasts";
 
-export const SECTIONS: readonly Section[] = ["articles", "podcasts"];
+export const SECTIONS: readonly Section[] = ["all", "articles", "podcasts"];
 
 export const SECTION_LABEL: Record<Section, string> = {
+  all: "All",
   articles: "Articles",
   podcasts: "Podcasts",
-};
-
-// articles.kind value for each section
-export const SECTION_KIND: Record<Section, "article" | "podcast"> = {
-  articles: "article",
-  podcasts: "podcast",
 };
 
 export function isSection(value: unknown): value is Section {
   return typeof value === "string" && (SECTIONS as readonly string[]).includes(value);
 }
 
-// Lenient (page URLs): anything unrecognised is the default section.
+// Lenient (page URLs): anything unrecognised is the default view.
 export function parseSection(value: string | null | undefined): Section {
-  return isSection(value) ? value : "articles";
+  return isSection(value) ? value : "all";
 }
 
-// The section a row lives in, from its kind
-export function sectionOfKind(kind: string | null | undefined): Section {
+// The list a row lives in, from its kind (never "all")
+export function sectionOfKind(kind: string | null | undefined): "articles" | "podcasts" {
   return kind === "podcast" ? "podcasts" : "articles";
 }

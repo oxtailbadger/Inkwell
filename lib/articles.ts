@@ -112,9 +112,9 @@ export async function fetchEnrichedArticles(
     p_before_created_at: decoded?.created_at ?? null,
     p_before_id: decoded?.id ?? null,
     p_limit: limit + 1,
-    // Only sent for Podcasts: the function defaults to articles, so the Articles
-    // feed works before supabase/sections.sql has been run
-    ...(section === "podcasts" ? { p_section: "podcasts" } : {}),
+    // Not sent for Articles: the function defaults to it, so that feed works
+    // even before supabase/sections.sql has been run
+    ...(section && section !== "articles" ? { p_section: section } : {}),
   });
   if (error) {
     logError("fetchEnrichedArticles", error.message);

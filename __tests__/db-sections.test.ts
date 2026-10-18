@@ -377,6 +377,20 @@ describe("feed_articles — sections", () => {
     expect(ids(next)).toEqual([pod3]);
   });
 
+  it("the All view mixes both kinds, newest first, and still hides what you dismissed", async () => {
+    expect(ids(await feed(alice, { section: "all" }))).toEqual([art1, pod1, art2, pod3]);
+    const rows = await feed(alice, { section: "all" });
+    expect(new Set(rows.map((r) => r.kind))).toEqual(new Set(["article", "podcast"]));
+  });
+
+  it("state, tag and cursor filters work in the All view", async () => {
+    expect(ids(await feed(alice, { section: "all", saved: true }))).toEqual([pod1]);
+    expect(ids(await feed(alice, { section: "all", read: true }))).toEqual([art2]);
+    expect(ids(await feed(alice, { section: "all", dismissed: true }))).toEqual([pod2]);
+    expect(ids(await feed(alice, { section: "all", tag: "tech" }))).toEqual([art1, pod1, pod3]);
+    expect(ids(await feed(alice, { section: "all", beforeCreatedAt: "2026-07-04T00:00:00Z", beforeId: pod1 }))).toEqual([art2, pod3]);
+  });
+
   it("each user sees their own state in the Podcasts feed", async () => {
     expect(ids(await feed(bob, { section: "podcasts", saved: true }))).toEqual([pod3]);
     // alice's dismissed pod2 is visible to bob, who never dismissed it

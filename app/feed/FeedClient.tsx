@@ -19,6 +19,13 @@ const DISMISS_TOAST_MS = 4500;
 
 // Per-section wording for headings and empty states
 const SECTION_COPY: Record<Section, { heading: string; noun: string; nouns: string; icon: string; emptyHint: string }> = {
+  all: {
+    heading: "Shared by your friends",
+    noun: "link",
+    nouns: "links",
+    icon: "📰",
+    emptyHint: "Be the first to share something worth reading or hearing.",
+  },
   articles: {
     heading: "Articles from your friends",
     noun: "article",
@@ -86,7 +93,7 @@ export default function FeedClient({
   // True once the Authors block has scrolled past the middle of the screen
   const [atAuthors, setAtAuthors] = useState(false);
   // "Added to Podcasts" after sharing a link that was filed in the other section
-  const [filedNotice, setFiledNotice] = useState<Section | null>(null);
+  const [filedNotice, setFiledNotice] = useState<"articles" | "podcasts" | null>(null);
   const [loading, setLoading] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(initialError);
   // The first render is already populated by the server; only refetch after
@@ -120,7 +127,8 @@ export default function FeedClient({
   const activeFilterParams = useCallback(
     (extra?: Record<string, string>) => {
       const params = new URLSearchParams(extra);
-      if (section !== "articles") params.set("section", section);
+      // Always explicit: the API treats a missing section as Articles
+      params.set("section", section);
       if (activeTag) params.set("tag", activeTag);
       if (savedOnly) params.set("saved", "1");
       if (readOnly) params.set("read", "1");
@@ -202,7 +210,7 @@ export default function FeedClient({
   function updateFilters(overrides: { section?: Section; tag?: string | null; saved?: boolean; read?: boolean; dismissed?: boolean }) {
     const params = new URLSearchParams();
     const nextSection = overrides.section !== undefined ? overrides.section : section;
-    if (nextSection !== "articles") params.set("section", nextSection);
+    if (nextSection !== "all") params.set("section", nextSection);
     const nextTag = overrides.tag !== undefined ? overrides.tag : activeTag;
     const nextSaved = overrides.saved !== undefined ? overrides.saved : savedOnly;
     const nextRead = overrides.read !== undefined ? overrides.read : readOnly;
@@ -241,7 +249,7 @@ export default function FeedClient({
   function toggleDismissedOnly() {
     updateFilters({ dismissed: !dismissedOnly });
   }
-  // Used by each empty-state's "Show all {copy.nouns}" link — clears every
+  // Used by each empty-state's "Show all" link — clears every
   // state-view toggle at once rather than just the one that's active,
   // since more than one can be on together
   function clearStateFilters() {
@@ -445,7 +453,7 @@ export default function FeedClient({
               onSubmitted={(created) => {
                 const filedIn = sectionOfKind(created?.kind);
                 // Only say so when it landed somewhere other than where you are
-                setFiledNotice(created?.kind && filedIn !== section ? filedIn : null);
+                setFiledNotice(created?.kind && section !== "all" && filedIn !== section ? filedIn : null);
                 loadArticles();
               }}
               initialUrl={sharedUrl ?? undefined}
@@ -559,7 +567,7 @@ export default function FeedClient({
                 ) : readOnly ? (
                   <>
                     <p className="font-medium text-ink">No read {copy.nouns} yet</p>
-                    <p className="text-sm mt-1">Mark {copy.noun === "article" ? "an article" : "a podcast"} read from its ⋮ menu.</p>
+                    <p className="text-sm mt-1">Mark {copy.noun === "podcast" ? "a podcast" : copy.noun === "link" ? "a link" : "an article"} read from its ⋮ menu.</p>
                     <button
                       onClick={clearStateFilters}
                       className="text-sm mt-1 text-accent border-b border-accent"
@@ -614,6 +622,7 @@ export default function FeedClient({
                       >
                         <ArticleCard
                           article={article}
+                          showKind={section === "all"}
                           onDelete={handleDelete}
                           currentUserId={userId}
                           menuOpen={openMenuId === article.id}

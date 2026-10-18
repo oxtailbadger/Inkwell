@@ -268,6 +268,13 @@ describe("GET /api/articles", () => {
       expect(args(supabase)).toEqual(expect.objectContaining({ p_section: "podcasts", p_saved: true }));
     });
 
+    it("passes All through to the database", async () => {
+      const supabase = makeSupabaseMock();
+      vi.mocked(createClient).mockResolvedValue(supabase as never);
+      expect((await GET(makeRequest("GET", undefined, { section: "all" }))).status).toBe(200);
+      expect(args(supabase)).toEqual(expect.objectContaining({ p_section: "all" }));
+    });
+
     it.each(["videos", "", "PODCASTS", "podcast", "articles,podcasts"])("rejects the unknown section %j with 400", async (section) => {
       const supabase = makeSupabaseMock();
       vi.mocked(createClient).mockResolvedValue(supabase as never);

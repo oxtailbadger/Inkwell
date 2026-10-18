@@ -123,8 +123,9 @@ create index if not exists articles_kind_feed_idx
 -- Same behaviour as before (see the notes in git history for launch-hardening.sql:
 -- hide what I've dismissed; p_dismissed shows ONLY those; saved/read/tag are
 -- independent toggles that AND together; keyset cursor on (created_at, id)),
--- plus p_section: 'articles' (the default) or 'podcasts'. Any other value
--- matches nothing, rather than silently meaning "articles".
+-- plus p_section: 'articles' (the default), 'podcasts', or 'all' (both mixed,
+-- newest first). Any other value matches nothing, rather than silently
+-- meaning "articles".
 --
 -- SECURITY INVOKER, and it must stay that way: article_state is per-user
 -- private, and a definer-context version would leak every user's saved / read /
@@ -156,10 +157,13 @@ as $$
   left join public.article_state s
     on s.article_id = a.id
    and s.user_id = auth.uid()
-  where a.kind = case coalesce(p_section, 'articles')
-                   when 'articles' then 'article'
-                   when 'podcasts' then 'podcast'
-                 end
+  where (
+          coalesce(p_section, 'articles') = 'all'
+          or a.kind = case coalesce(p_section, 'articles')
+                        when 'articles' then 'article'
+                        when 'podcasts' then 'podcast'
+                      end
+        )
     and (p_tag is null or a.tags @> array[p_tag])
     and (not coalesce(p_saved, false) or coalesce(s.saved, false))
     and (not coalesce(p_read, false)  or coalesce(s.read, false))

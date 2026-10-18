@@ -42,8 +42,11 @@ export function ArticleCard({
   onCloseMenu,
   onDismiss,
   onUndismiss,
+  showKind,
 }: {
   article: Article;
+  // Label podcasts — only useful where both kinds are mixed (the All view)
+  showKind?: boolean;
   onDelete: (id: string) => void;
   currentUserId: string;
   menuOpen: boolean;
@@ -297,6 +300,11 @@ export function ArticleCard({
             <span className="text-xs font-display font-semibold uppercase tracking-[0.08em] text-muted truncate">
               {article.site_name ?? domain}
             </span>
+            {showKind && article.kind === "podcast" && (
+              <span className="text-[11px] font-display font-semibold uppercase tracking-wider text-accent shrink-0">
+                🎧 Podcast
+              </span>
+            )}
             {saved && (
               <span className="flex-none text-[10px] font-semibold bg-accent-tint text-accent rounded-badge-sm px-1.5 py-0.5">
                 {read ? "Saved · Read" : "Saved"}
