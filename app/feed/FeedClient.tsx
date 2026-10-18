@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -13,7 +13,8 @@ import { ToastStack, type ToastItem } from "@/components/Toast";
 import type { Article } from "@/lib/articles";
 import { apiFetch, goToLogin } from "@/lib/api-client";
 import { createLatestGuard } from "@/lib/latest";
-import { SECTIONS, SECTION_LABEL, parseSection, sectionOfKind, type Section } from "@/lib/sections";
+import { VIEWS, VIEW_LABEL, type Section, type View } from "@/lib/sections";
+import { feedApiParams, feedFetchDecision, feedPath, filedNoticeFor, parseFeedUrl, viewAfterSwitch, type FeedFilters } from "@/lib/feed-view";
 
 const DISMISS_TOAST_MS = 4500;
 
@@ -72,12 +73,12 @@ export default function FeedClient({
   const searchParams = useSearchParams();
   // Tag + saved/read/dismissed filters all live in the URL so filtered
   // views are shareable and survive reloads
-  const section = parseSection(searchParams.get("section"));
+  // Which view is showing: All / Articles / Podcasts (a feed), or Authors. In the
+  // Authors view `section` stays at its default so the feed's own state is
+  // untouched (and nothing refetches) while you look at authors.
+  const { view, section, filters } = useMemo(() => parseFeedUrl(searchParams), [searchParams]);
   const copy = SECTION_COPY[section];
-  const activeTag = searchParams.get("tag");
-  const savedOnly = searchParams.get("saved") === "1";
-  const readOnly = searchParams.get("read") === "1";
-  const dismissedOnly = searchParams.get("dismissed") === "1";
+  const { tag: activeTag, saved: savedOnly, read: readOnly, dismissed: dismissedOnly } = filters;
   // Set by /share (Web Share Target); captured once — SubmitArticle seeds
   // its state from the first value, and we scrub it from the URL below.
   // Lazy useState (not useRef(...).current): same "read once at mount"
@@ -90,8 +91,6 @@ export default function FeedClient({
   const [articles, setArticles] = useState<Article[]>(initialArticles);
   const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
   const [loadingMore, setLoadingMore] = useState(false);
-  // True once the Authors block has scrolled past the middle of the screen
-  const [atAuthors, setAtAuthors] = useState(false);
   // "Added to Podcasts" after sharing a link that was filed in the other section
   const [filedNotice, setFiledNotice] = useState<"articles" | "podcasts" | null>(null);
   const [loading, setLoading] = useState(false);
@@ -126,14 +125,7 @@ export default function FeedClient({
   // mutually exclusive with each other or with the tag filter)
   const activeFilterParams = useCallback(
     (extra?: Record<string, string>) => {
-      const params = new URLSearchParams(extra);
-      // Always explicit: the API treats a missing section as Articles
-      params.set("section", section);
-      if (activeTag) params.set("tag", activeTag);
-      if (savedOnly) params.set("saved", "1");
-      if (readOnly) params.set("read", "1");
-      if (dismissedOnly) params.set("dismissed", "1");
-      return params;
+      return feedApiParams(section, { tag: activeTag, saved: savedOnly, read: readOnly, dismissed: dismissedOnly }, extra);
     },
     [section, activeTag, savedOnly, readOnly, dismissedOnly]
   );
@@ -189,54 +181,42 @@ export default function FeedClient({
   }
 
   useEffect(() => {
-    if (
-      hydratedFromServer.current &&
-      section === initialSection &&
-      activeTag === initialTag &&
-      savedOnly === initialSavedOnly &&
-      readOnly === initialReadOnly &&
-      dismissedOnly === initialDismissedOnly
-    ) {
+    const decision = feedFetchDecision({
+      view,
+      section,
+      filters: { tag: activeTag, saved: savedOnly, read: readOnly, dismissed: dismissedOnly },
+      initial: {
+        section: initialSection,
+        filters: { tag: initialTag, saved: initialSavedOnly, read: initialReadOnly, dismissed: initialDismissedOnly },
+      },
+      stillHydrated: hydratedFromServer.current,
+    });
+    // On Authors the feed (and the "hydrated" flag) is left alone
+    if (decision === "skip") return;
+    if (decision === "hydrated") {
       hydratedFromServer.current = false;
       return;
     }
     hydratedFromServer.current = false;
     loadArticles();
-  }, [loadArticles, section, initialSection, activeTag, initialTag, savedOnly, initialSavedOnly, readOnly, initialReadOnly, dismissedOnly, initialDismissedOnly]);
+  }, [loadArticles, view, section, initialSection, activeTag, initialTag, savedOnly, initialSavedOnly, readOnly, initialReadOnly, dismissedOnly, initialDismissedOnly]);
 
   // Shallow history update: syncs useSearchParams without a server round-trip
   // (the tag-change effect below does the client-side fetch). Any filter not
   // named in `overrides` keeps its current value.
-  function updateFilters(overrides: { section?: Section; tag?: string | null; saved?: boolean; read?: boolean; dismissed?: boolean }) {
-    const params = new URLSearchParams();
-    const nextSection = overrides.section !== undefined ? overrides.section : section;
-    if (nextSection !== "all") params.set("section", nextSection);
-    const nextTag = overrides.tag !== undefined ? overrides.tag : activeTag;
-    const nextSaved = overrides.saved !== undefined ? overrides.saved : savedOnly;
-    const nextRead = overrides.read !== undefined ? overrides.read : readOnly;
-    const nextDismissed = overrides.dismissed !== undefined ? overrides.dismissed : dismissedOnly;
-    if (nextTag) params.set("tag", nextTag);
-    if (nextSaved) params.set("saved", "1");
-    if (nextRead) params.set("read", "1");
-    if (nextDismissed) params.set("dismissed", "1");
-    const qs = params.toString();
-    window.history.replaceState(null, "", qs ? `/feed?${qs}` : "/feed");
+  function updateFilters(overrides: Partial<FeedFilters>) {
+    const next: FeedFilters = { ...filters, ...overrides };
+    window.history.replaceState(null, "", feedPath(view, next));
   }
 
-  // Switching section keeps the Saved/Read/Dismissed toggles (they're per-user
-  // views you may want in both) but drops the tag, which belongs to one list
-  function switchSection(next: Section) {
-    // From the Authors block, even re-picking the current section means "take me back up"
-    if (atAuthors) document.getElementById("articles")?.scrollIntoView();
-    if (next === section) return;
+  function switchSection(next: View) {
+    if (next === view) return;
     setFiledNotice(null);
-    updateFilters({ section: next, tag: null });
+    window.scrollTo({ top: 0 });
+    const to = viewAfterSwitch({ view, filters }, next);
+    window.history.replaceState(null, "", feedPath(to.view, to.filters));
   }
-  // Articles and Podcasts switch the list; Authors scrolls to its block below it
-  const navItems: { key: string; label: string; active: boolean; section?: Section; href?: string }[] = [
-    ...SECTIONS.map((id) => ({ key: id, label: SECTION_LABEL[id], section: id, active: !atAuthors && section === id })),
-    { key: "authors", label: "Authors", href: "#authors", active: atAuthors },
-  ];
+  const navItems = VIEWS.map((id) => ({ key: id, label: VIEW_LABEL[id], view: id, active: view === id }));
   function setActiveTag(tag: string | null) {
     updateFilters({ tag });
   }
@@ -255,28 +235,6 @@ export default function FeedClient({
   function clearStateFilters() {
     updateFilters({ saved: false, read: false, dismissed: false });
   }
-
-  // Track which section is in view based on scroll position. Throttled via
-  // rAF so the DOM read (getBoundingClientRect) and state update happen at
-  // most once per frame instead of once per scroll event.
-  useEffect(() => {
-    let ticking = false;
-    function updateActiveSection() {
-      const authors = document.getElementById("authors");
-      if (authors) {
-        const midpoint = window.innerHeight / 2;
-        setAtAuthors(authors.getBoundingClientRect().top <= midpoint);
-      }
-      ticking = false;
-    }
-    function onScroll() {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(updateActiveSection);
-    }
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   async function handleDelete(id: string) {
     try {
@@ -429,18 +387,14 @@ export default function FeedClient({
         {/* Sidebar */}
         <aside className="hidden lg:block w-44 shrink-0 lg:border-r lg:border-card-border">
           <nav className="sticky top-20 space-y-1">
-            {navItems.map(({ key, label, active, section: target, href }) => {
+            {navItems.map(({ key, label, active, view: target }) => {
               const cls = `flex w-full items-center gap-2 px-3 py-2 rounded-control text-sm font-medium transition-colors text-left ${
                 active ? "bg-accent-tint text-accent" : "text-muted hover:bg-tag-bg hover:text-ink"
               }`;
-              return target ? (
+              return (
                 <button key={key} onClick={() => switchSection(target)} aria-current={active ? "page" : undefined} className={cls}>
                   {label}
                 </button>
-              ) : (
-                <a key={key} href={href} aria-current={active ? "page" : undefined} className={cls}>
-                  {label}
-                </a>
               );
             })}
           </nav>
@@ -448,19 +402,19 @@ export default function FeedClient({
 
         {/* Main content */}
         <main className="flex-1 min-w-0 space-y-10">
+          {view !== "authors" && (
           <section id="articles" className="space-y-6 scroll-mt-20">
             <SubmitArticle
               onSubmitted={(created) => {
-                const filedIn = sectionOfKind(created?.kind);
                 // Only say so when it landed somewhere other than where you are
-                setFiledNotice(created?.kind && section !== "all" && filedIn !== section ? filedIn : null);
+                setFiledNotice(filedNoticeFor(created?.kind, section));
                 loadArticles();
               }}
               initialUrl={sharedUrl ?? undefined}
             />
             {filedNotice && (
               <p role="status" className="text-sm text-ink bg-accent-tint border border-accent rounded-control px-4 py-2.5 flex items-center justify-between gap-3">
-                <span>Added to {SECTION_LABEL[filedNotice]}.</span>
+                <span>Added to {VIEW_LABEL[filedNotice]}.</span>
                 <button onClick={() => switchSection(filedNotice)} className="font-semibold text-accent border-b border-accent">
                   View
                 </button>
@@ -649,27 +603,26 @@ export default function FeedClient({
               </>
             )}
           </section>
+          )}
 
-          <section id="authors" className="scroll-mt-20">
-            <AuthorFeed />
-          </section>
+          {view === "authors" && (
+            <section id="authors" className="scroll-mt-20">
+              <AuthorFeed />
+            </section>
+          )}
         </main>
       </div>
 
       {/* Mobile bottom nav — the sidebar is desktop-only */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-10 bg-card border-t border-card-border flex">
-        {navItems.map(({ key, label, active, section: target, href }) => {
+        {navItems.map(({ key, label, active, view: target }) => {
           const cls = `flex-1 py-3 text-center text-sm font-medium transition-colors ${
             active ? "text-accent border-t-2 border-accent -mt-px" : "text-muted"
           }`;
-          return target ? (
+          return (
             <button key={key} onClick={() => switchSection(target)} aria-current={active ? "page" : undefined} className={cls}>
               {label}
             </button>
-          ) : (
-            <a key={key} href={href} aria-current={active ? "page" : undefined} className={cls}>
-              {label}
-            </a>
           );
         })}
       </nav>

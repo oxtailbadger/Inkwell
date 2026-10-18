@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SECTIONS, SECTION_LABEL, isSection, parseSection, sectionOfKind } from "@/lib/sections";
+import { SECTIONS, SECTION_LABEL, VIEWS, VIEW_LABEL, isSection, parseSection, parseView, sectionOfKind } from "@/lib/sections";
 
 describe("lib/sections", () => {
   it("has All (the default), Articles and Podcasts, each with a label", () => {
@@ -28,5 +28,15 @@ describe("lib/sections", () => {
     expect(sectionOfKind("article")).toBe("articles");
     expect(sectionOfKind(undefined)).toBe("articles"); // before sections.sql has run
     expect(sectionOfKind("whatever")).toBe("articles");
+  });
+
+  it("Authors is a view, not a section: the API/database never accept it", () => {
+    expect(VIEWS).toEqual(["all", "articles", "podcasts", "authors"]);
+    expect(VIEWS.every((v) => VIEW_LABEL[v])).toBe(true);
+    expect(isSection("authors")).toBe(false);
+    expect(parseSection("authors")).toBe("all");
+    expect(parseView("authors")).toBe("authors");
+    expect(parseView("podcasts")).toBe("podcasts");
+    for (const v of [null, undefined, "", "Authors", "videos"]) expect(parseView(v)).toBe("all");
   });
 });

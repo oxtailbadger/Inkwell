@@ -12,7 +12,7 @@ Sign-in and sign-up emails now include a short **code** as well as the link. The
 
 ### 🎧 A Podcasts section
 
-Inkwell now has an **All** view (the default, articles and podcasts together, podcasts marked 🎧) and a **Podcasts** tab beside Articles. Share a link from Apple Podcasts, Spotify (episodes and shows), Overcast, Pocket Casts and the like and it goes there automatically — nothing to pick. It works just like Articles: Nods, Save / Read / Dismiss, tags. Podcast links that were already shared have moved over. Spotify songs and playlists still count as articles. If you share a podcast while looking at Articles, you'll see "Added to Podcasts" with a link to it.
+Inkwell now has an **All** view (the default, articles and podcasts together, podcasts marked 🎧) and a **Podcasts** tab beside Articles. **Authors** is now its own tab too, instead of sitting under the feed. Share a link from Apple Podcasts, Spotify (episodes and shows), Overcast, Pocket Casts and the like and it goes there automatically — nothing to pick. It works just like Articles: Nods, Save / Read / Dismiss, tags. Podcast links that were already shared have moved over. Spotify songs and playlists still count as articles. If you share a podcast while looking at Articles, you'll see "Added to Podcasts" with a link to it.
 
 ### 🔗 Shared links survive signing in
 

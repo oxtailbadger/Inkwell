@@ -25,3 +25,16 @@ export function parseSection(value: string | null | undefined): Section {
 export function sectionOfKind(kind: string | null | undefined): "articles" | "podcasts" {
   return kind === "podcast" ? "podcasts" : "articles";
 }
+
+// What the feed page is showing: one of the sections above, or the curated
+// Authors list (a separate view, not a kind of shared link — the API and the
+// database know nothing about it). Lives in the same ?section= URL param.
+export type View = Section | "authors";
+
+export const VIEWS: readonly View[] = [...SECTIONS, "authors"];
+
+export const VIEW_LABEL: Record<View, string> = { ...SECTION_LABEL, authors: "Authors" };
+
+export function parseView(value: string | null | undefined): View {
+  return value === "authors" ? "authors" : parseSection(value);
+}
