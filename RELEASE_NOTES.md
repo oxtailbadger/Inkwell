@@ -16,7 +16,7 @@ Inkwell now has an **All** view (the default, articles and podcasts together, po
 
 ### ✍️ More authors
 
-The **Authors** tab (now its own tab, not tucked under the feed) has five new writers: **Casey Newton** (*Platformer*, tech), **Matthew Yglesias** (*Slow Boring*, politics), **Heather Cox Richardson** (*Letters from an American*, politics and history), **Anne Helen Petersen** (*Culture Study*, culture) and **Jonathan Haidt** (*After Babel*, social media and kids). Paywalled posts are left out, so you may see fewer from some of them.
+The **Authors** tab (now its own tab, not tucked under the feed) has five new writers: **Casey Newton** (*Platformer*, tech), **Matthew Yglesias** (*Slow Boring*, politics), **Heather Cox Richardson** (*Letters from an American*, politics and history), **Anne Helen Petersen** (*Culture Study*, culture) and **Jonathan Haidt** (*After Babel*, social media and kids). Paywalled posts are left out, so you may see fewer from some of them. That includes Platformer's paid posts, which were slipping through and are now hidden too.
 
 ### 🔗 Shared links survive signing in
 
