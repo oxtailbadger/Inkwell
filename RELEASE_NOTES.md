@@ -6,6 +6,8 @@ What's new in Inkwell, in plain language. A new entry is added with each release
 
 ## October 18, 2026 *(pending — draft for review)*
 
+*Announcement email (HTML + plain text, for sending through Resend): [`announcements/2026-10-18-whats-new.html`](announcements/2026-10-18-whats-new.html).*
+
 ### 🔢 Sign in with a code
 
 Sign-in and sign-up emails now include a short **code** as well as the link. The link only works in the browser you asked for it from — so if you asked on your laptop and opened the email on your phone, or tapped it inside Instagram or Gmail, it failed. The code works from anywhere: type it into the page you started on. Lost that page? Tap **Already have a code? Enter it here** and type your email and the code — no need to ask for a new one (which would replace it). New to Inkwell and tried to sign in? You'll now get a one-tap **Create my account** instead of an error, and clearer messages (plus a *check your spam folder* tip and a **Resend** button) if an email doesn't show up.
