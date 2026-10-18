@@ -13,12 +13,12 @@ const mockUser = { id: "user-123", email: "test@example.com" };
 // beforeEach clearAllMocks below would wipe the call before any test reads it.
 const { parseURL, captured } = vi.hoisted(() => ({
   parseURL: vi.fn(),
-  captured: { options: undefined as { timeout?: number } | undefined },
+  captured: { options: undefined as { timeout?: number; customFields?: { item?: string[][] } } | undefined },
 }));
 vi.mock("rss-parser", () => ({
   default: class MockParser {
     parseURL = parseURL;
-    constructor(options?: { timeout?: number }) {
+    constructor(options?: { timeout?: number; customFields?: { item?: string[][] } }) {
       captured.options = options;
     }
   },
@@ -92,6 +92,24 @@ describe("GET /api/author-articles", () => {
       "Free 2",
       "Free 3",
     ]);
+  });
+
+  it("hides Ghost-style paid posts, whose <content:encoded> arrives empty (Platformer)", async () => {
+    vi.mocked(createClient).mockResolvedValue(makeSupabaseMock({ authors: [benAuthor] }) as never);
+    parseURL.mockResolvedValue({
+      items: [
+        // normal-looking teaser, nothing paid in the text: only the empty body gives it away
+        { title: "Paid (empty body)", link: "https://s.com/1", contentSnippet: FREE_DESC, contentEncoded: "" },
+        { title: "Free (full body)", link: "https://s.com/2", contentSnippet: FREE_DESC, contentEncoded: "<p>The whole post</p>" },
+        { title: "No body tag at all", link: "https://s.com/3", contentSnippet: FREE_DESC },
+      ],
+    });
+    const body = await (await GET()).json();
+    expect(body[0].articles.map((a: { title: string }) => a.title)).toEqual(["Free (full body)", "No body tag at all"]);
+  });
+
+  it("asks the feed parser for <content:encoded> — without it the empty-body check never fires", () => {
+    expect(captured.options?.customFields?.item).toContainEqual(["content:encoded", "contentEncoded"]);
   });
 
   it("constructs the feed parser with a short timeout, so one hung publisher can't stall the card", () => {

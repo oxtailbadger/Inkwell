@@ -6,6 +6,20 @@ const FREE_DESC =
   "A long and detailed description of an article that is freely available to anyone who wants to read it in full.";
 
 describe("isPaywalled", () => {
+  describe("an empty <content:encoded> (Ghost sites such as Platformer withhold paid bodies this way)", () => {
+    it("is paywalled even with a long, normal teaser", () => {
+      expect(isPaywalled({ contentSnippet: FREE_DESC, contentEncoded: "" })).toBe(true);
+      expect(isPaywalled({ contentSnippet: FREE_DESC, contentEncoded: "  \n " })).toBe(true);
+    });
+    it("is NOT triggered when the body is present, or when the feed sends no such tag", () => {
+      expect(isPaywalled({ contentSnippet: FREE_DESC, contentEncoded: "<p>Full text</p>" })).toBe(false);
+      expect(isPaywalled({ contentSnippet: FREE_DESC })).toBe(false);
+    });
+    it("beats a 'free' category, like the other explicit paid signals", () => {
+      expect(isPaywalled({ contentSnippet: FREE_DESC, categories: ["Articles"], contentEncoded: "" })).toBe(true);
+    });
+  });
+
   it("passes a normal free article", () => {
     expect(isPaywalled({ title: "Free piece", contentSnippet: FREE_DESC })).toBe(false);
   });

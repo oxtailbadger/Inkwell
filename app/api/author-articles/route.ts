@@ -15,7 +15,12 @@ import { safeHttpUrl } from "@/lib/validate";
 // below, which degrades just that author to "no articles".
 const FEED_TIMEOUT_MS = 5000;
 
-const parser = new Parser({ timeout: FEED_TIMEOUT_MS });
+// content:encoded is read so isPaywalled() can tell a withheld body (empty tag)
+// from a free one — see lib/paywall.ts
+const parser = new Parser({
+  timeout: FEED_TIMEOUT_MS,
+  customFields: { item: [["content:encoded", "contentEncoded"]] },
+});
 
 export async function GET() {
   const supabase = await createClient();

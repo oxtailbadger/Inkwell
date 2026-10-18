@@ -5,6 +5,9 @@
 // - Stratechery marks paid posts with RSS <category> values ("Daily Update",
 //   "This Week in Stratechery") and its free weekly essays with "Articles"
 // - Substack puts a paid-subscriber notice in the description text
+// - Ghost sites (Platformer) publish the full text of free posts in
+//   <content:encoded> and send that tag EMPTY for paid ones, with a normal-looking
+//   description — so nothing in the teaser text gives them away
 // - The <80-char fallback catches truncated teaser descriptions, but is a
 //   *weak* signal, so an explicit free category (FREE_CATEGORIES) overrides it
 // If an author's card starts showing zero items, check the
@@ -16,6 +19,8 @@ export type RSSItem = {
   contentSnippet?: string;
   pubDate?: string;
   categories?: string[];
+  // The raw <content:encoded> (see the Ghost note above); undefined if the feed has none
+  contentEncoded?: string;
 };
 
 export const PAID_CATEGORIES = ["daily update", "this week in stratechery"];
@@ -40,6 +45,9 @@ export function isPaywalled(item: RSSItem): boolean {
   // Explicit paid signals are authoritative and checked first.
   if (PAID_CATEGORIES.some((p) => cats.includes(p))) return true;
   if (PAID_DESCRIPTION_MARKERS.some((m) => desc.includes(m))) return true;
+  // Present but empty: the publisher withheld the body. (Absent is not the same
+  // thing — plenty of feeds simply don't send the tag.)
+  if (item.contentEncoded !== undefined && item.contentEncoded.trim() === "") return true;
 
   // The short-description fallback is a weak heuristic: skip it when the item
   // is explicitly categorized as a free article, so a free essay with a terse
