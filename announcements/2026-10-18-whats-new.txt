@@ -1,0 +1,35 @@
+Hi, it's been a minute. We've been busy.
+
+Inkwell now lives at https://inkwell-reads.xyz, and a lot has changed since you last dropped by. Here's the two-minute tour.
+
+NEW: PODCASTS HAVE THEIR OWN HOME
+Paste a link from Apple Podcasts, Spotify (episodes and shows), and Inkwell files it under Podcasts automatically. Nothing to pick, nothing to tag. Songs and playlists stay put. Nods, Save, Read and Dismiss all work the same.
+
+TABS: ALL, ARTICLES, PODCASTS, AUTHORS
+All is the default: everything your friends shared, newest first, podcasts marked with a headphones icon. Want just one kind? Tap its tab. Authors got its own tab too, so the feed stays about your friends.
+
+FIVE NEW WRITERS ON THE AUTHORS TAB
+Joining Derek Thompson and Ben Thompson:
+- Casey Newton - Platformer, tech
+- Matthew Yglesias - Slow Boring, politics
+- Heather Cox Richardson - Letters from an American
+- Anne Helen Petersen - Culture Study
+- Jonathan Haidt - After Babel, kids and social media
+Paywalled posts are hidden, so you only see things you can actually read.
+
+SIGNING IN IS EASIER
+The sign-in email now includes a short code as well as the link. Asked for it on your laptop but opened the email on your phone? Type the code instead. The link only works in the browser that asked for it. Sharing from your phone while signed out no longer loses the link either.
+
+LITTLE THINGS
+Inkwell catches double-shares and tells you who got there first, so go give them a Nod. The feed holds up no matter how much you've saved, read or dismissed.
+
+If it's been a while, this is a good time to give Inkwell another look. Your friends have been sharing good stuff.
+
+Open Inkwell: https://inkwell-reads.xyz
+
+Hit reply if something's broken or you have an idea. I read every message.
+
+- Paul
+
+--
+You're getting this because you have an Inkwell account. Unsubscribe: {{{RESEND_UNSUBSCRIBE_URL}}}

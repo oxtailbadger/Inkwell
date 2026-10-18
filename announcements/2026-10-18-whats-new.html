@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Inkwell now does podcasts (and a few other tricks)</title>
+<style>
+  /* Everything is inline so clients that strip <style> still show the light version;
+     clients that honor it get this dark variant. */
+  @media (prefers-color-scheme: dark) {
+    .bg-outer { background-color: #15130f !important; }
+    .bg-card  { background-color: #1e1b17 !important; border-color: #3a362f !important; }
+    .bg-tint  { background-color: #26302a !important; }
+    .t-ink    { color: #f4f0e8 !important; }
+    .t-muted  { color: #b9b3a6 !important; }
+    .t-accent { color: #7fcf9e !important; }
+    .btn      { background-color: #7fcf9e !important; color: #15130f !important; }
+    .rule     { border-color: #3a362f !important; }
+  }
+  @media only screen and (max-width: 560px) {
+    .pad { padding-left: 22px !important; padding-right: 22px !important; }
+  }
+</style>
+</head>
+<body class="bg-outer" style="margin:0;padding:0;background-color:#f7f5f0;">
+<!-- Preheader: the grey preview line next to the subject in an inbox -->
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">Podcasts, five new writers, and a sign-in that finally works from your phone. Come see what you missed.</div>
+
+<table role="presentation" class="bg-outer" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f7f5f0;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" class="bg-card" width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="max-width:560px;background-color:#fffdfa;border:1px solid #dcd8d0;border-radius:10px;">
+
+        <!-- Masthead -->
+        <tr>
+          <td class="pad" style="padding:32px 36px 4px 36px;">
+            <div class="t-ink" style="font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.2;font-weight:bold;color:#17130f;letter-spacing:-0.01em;">Inkwell</div>
+            <div class="t-muted" style="font-family:Georgia,'Times New Roman',serif;font-size:13px;line-height:1.4;color:#6f6a62;padding-top:2px;">Articles worth reading, shared by friends.</div>
+          </td>
+        </tr>
+
+        <!-- Hello -->
+        <tr>
+          <td class="pad" style="padding:22px 36px 4px 36px;">
+            <h1 class="t-ink" style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:26px;line-height:1.25;font-weight:bold;color:#17130f;">Hi, it&rsquo;s been a minute. We&rsquo;ve been busy.</h1>
+          </td>
+        </tr>
+        <tr>
+          <td class="pad" style="padding:12px 36px 8px 36px;">
+            <p class="t-ink" style="margin:0 0 12px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;color:#17130f;">Inkwell now lives at <a class="t-accent" href="https://inkwell-reads.xyz" style="color:#1f4d36;font-weight:600;">inkwell-reads.xyz</a>, and a lot has changed since you last dropped by. Here&rsquo;s the two-minute tour.</p>
+          </td>
+        </tr>
+
+        <!-- 1. Podcasts -->
+        <tr>
+          <td class="pad" style="padding:14px 36px 0 36px;">
+            <table role="presentation" class="bg-tint" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eef3ee;border-radius:8px;">
+              <tr>
+                <td style="padding:18px 20px;">
+                  <div class="t-accent" style="font-family:Georgia,'Times New Roman',serif;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;font-weight:bold;color:#1f4d36;">New</div>
+                  <h2 class="t-ink" style="margin:4px 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:21px;line-height:1.3;font-weight:bold;color:#17130f;">&#127911; Podcasts have their own home</h2>
+                  <p class="t-ink" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#17130f;">Paste a link from Apple Podcasts, Spotify (episodes and shows), and Inkwell files it under <strong>Podcasts</strong> automatically. Nothing to pick, nothing to tag. Songs and playlists stay put. Nods, Save, Read and Dismiss all work the same.</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- 2. Tabs -->
+        <tr>
+          <td class="pad" style="padding:22px 36px 0 36px;">
+            <h2 class="t-ink" style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:19px;line-height:1.3;font-weight:bold;color:#17130f;">&#128209; Tabs: All, Articles, Podcasts, Authors</h2>
+            <p class="t-ink" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#17130f;"><strong>All</strong> is the default: everything your friends shared, newest first, podcasts marked with a headphones icon. Want just one kind? Tap its tab. Authors got its own tab too, so the feed stays about your friends.</p>
+          </td>
+        </tr>
+
+        <!-- 3. Authors -->
+        <tr>
+          <td class="pad" style="padding:22px 36px 0 36px;">
+            <h2 class="t-ink" style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:19px;line-height:1.3;font-weight:bold;color:#17130f;">&#9997;&#65039; Five new writers on the Authors tab</h2>
+            <p class="t-ink" style="margin:0 0 8px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#17130f;">Joining Derek Thompson and Ben Thompson:</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td class="t-ink" style="padding:3px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#17130f;"><strong>Casey Newton</strong> <span class="t-muted" style="color:#6f6a62;">&mdash; Platformer, tech</span></td></tr>
+              <tr><td class="t-ink" style="padding:3px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#17130f;"><strong>Matthew Yglesias</strong> <span class="t-muted" style="color:#6f6a62;">&mdash; Slow Boring, politics</span></td></tr>
+              <tr><td class="t-ink" style="padding:3px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#17130f;"><strong>Heather Cox Richardson</strong> <span class="t-muted" style="color:#6f6a62;">&mdash; Letters from an American</span></td></tr>
+              <tr><td class="t-ink" style="padding:3px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#17130f;"><strong>Anne Helen Petersen</strong> <span class="t-muted" style="color:#6f6a62;">&mdash; Culture Study</span></td></tr>
+              <tr><td class="t-ink" style="padding:3px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#17130f;"><strong>Jonathan Haidt</strong> <span class="t-muted" style="color:#6f6a62;">&mdash; After Babel, kids and social media</span></td></tr>
+            </table>
+            <p class="t-muted" style="margin:8px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.5;color:#6f6a62;">Paywalled posts are hidden, so you only see things you can actually read.</p>
+          </td>
+        </tr>
+
+        <!-- 4. Sign-in -->
+        <tr>
+          <td class="pad" style="padding:22px 36px 0 36px;">
+            <h2 class="t-ink" style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:19px;line-height:1.3;font-weight:bold;color:#17130f;">&#128290; Signing in is easier</h2>
+            <p class="t-ink" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#17130f;">The sign-in email now includes a short <strong>code</strong> as well as the link. Asked for it on your laptop but opened the email on your phone? Type the code instead. The link only works in the browser that asked for it. Sharing from your phone while signed out no longer loses the link either.</p>
+          </td>
+        </tr>
+
+        <!-- 5. Small stuff -->
+        <tr>
+          <td class="pad" style="padding:22px 36px 0 36px;">
+            <h2 class="t-ink" style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:19px;line-height:1.3;font-weight:bold;color:#17130f;">&#10024; Little things</h2>
+            <p class="t-ink" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#17130f;">Inkwell catches double-shares and tells you who got there first, so go give them a Nod. The feed holds up no matter how much you&rsquo;ve saved, read or dismissed.</p>
+          </td>
+        </tr>
+
+        <!-- Call to action -->
+        <tr>
+          <td class="pad" align="left" style="padding:28px 36px 8px 36px;">
+            <p class="t-ink" style="margin:0 0 14px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;color:#17130f;"><strong>If it&rsquo;s been a while, this is a good time to give Inkwell another look.</strong> Your friends have been sharing good stuff.</p>
+            <a class="btn" href="https://inkwell-reads.xyz" style="display:inline-block;background-color:#1f4d36;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;line-height:1;text-decoration:none;padding:15px 28px;border-radius:8px;">Open Inkwell</a>
+          </td>
+        </tr>
+        <tr>
+          <td class="pad" style="padding:14px 36px 4px 36px;">
+            <p class="t-ink" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#17130f;">Hit reply if something&rsquo;s broken or you have an idea. I read every message.</p>
+            <p class="t-ink" style="margin:10px 0 0 0;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.5;color:#17130f;">&mdash; Paul</p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td class="pad" style="padding:24px 36px 28px 36px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td class="rule" style="border-top:1px solid #dcd8d0;padding-top:16px;">
+                  <p class="t-muted" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#6f6a62;">You&rsquo;re getting this because you have an Inkwell account. Don&rsquo;t want updates like this?
+                    <a href="{{{RESEND_UNSUBSCRIBE_URL}}}" style="color:#6f6a62;text-decoration:underline;">Unsubscribe</a>.</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
